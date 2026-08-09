@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Eye, Mail, Award, MapPin, Building2, User, Phone, CheckCircle2, AlertCircle, Copy, Check } from "lucide-react";
 
 export default function LeadTable({
-  leads,
+  leads = [],
   onSelectLead,
   onOpenScoreModal,
   onOpenOutreach
@@ -11,6 +11,8 @@ export default function LeadTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedText, setCopiedText] = useState(null);
 
+  const safeLeads = Array.isArray(leads) ? leads : [];
+
   const handleCopyText = (text, key) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -18,7 +20,8 @@ export default function LeadTable({
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const filteredLeads = leads.filter(l => {
+  const filteredLeads = safeLeads.filter(l => {
+    if (!l) return false;
     const matchesTier = filterTier === "ALL" || (
       filterTier === "HOT" && (l.tier === "Hot lead" || l.score >= 80)
     ) || (

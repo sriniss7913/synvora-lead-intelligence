@@ -1,14 +1,15 @@
 import React from "react";
 import { Flame, Zap, ShieldCheck, Award, Target } from "lucide-react";
 
-export default function LeadStatsOverview({ leads }) {
-  const totalLeads = leads.length;
-  const hotLeads = leads.filter(l => l.tier === "Hot lead" || l.score >= 80).length;
-  const warmLeads = leads.filter(l => l.tier === "Warm lead" || (l.score >= 60 && l.score < 80)).length;
+export default function LeadStatsOverview({ leads = [] }) {
+  const safeLeads = leads || [];
+  const totalLeads = safeLeads.length;
+  const hotLeads = safeLeads.filter(l => l && (l.tier === "Hot lead" || l.score >= 80)).length;
+  const warmLeads = safeLeads.filter(l => l && (l.tier === "Warm lead" || (l.score >= 60 && l.score < 80))).length;
   const avgScore = totalLeads > 0 
-    ? Math.round(leads.reduce((acc, curr) => acc + (curr.score || 0), 0) / totalLeads) 
+    ? Math.round(safeLeads.reduce((acc, curr) => acc + (curr?.score || 0), 0) / totalLeads) 
     : 0;
-  const highAiOppCount = leads.filter(l => (l.scoreBreakdown?.digitalOpportunity?.score || 0) >= 17).length;
+  const highAiOppCount = safeLeads.filter(l => l && (l.scoreBreakdown?.digitalOpportunity?.score || 0) >= 17).length;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, margin: "20px auto 0 auto", maxWidth: 1400 }}>

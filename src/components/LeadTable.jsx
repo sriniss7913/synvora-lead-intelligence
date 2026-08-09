@@ -156,7 +156,11 @@ export default function LeadTable({
                     <td style={{ padding: "14px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <Mail size={13} color="var(--accent-indigo)" />
-                        <a href={`mailto:${dmEmail}`} style={{ color: "var(--accent-cyan)", fontSize: "0.82rem", textDecoration: "none" }}>
+                        <a
+                          href={`mailto:${dmEmail}?subject=${encodeURIComponent(`Synvora AI Lead Intelligence Inquiry for ${company.companyName}`)}&body=${encodeURIComponent(company.outreach?.email?.body || '')}`}
+                          style={{ color: "var(--accent-cyan)", fontSize: "0.82rem", textDecoration: "none" }}
+                          title="1-Click Launch Email Client"
+                        >
                           {dmEmail}
                         </a>
                         <button
@@ -173,8 +177,14 @@ export default function LeadTable({
                     <td style={{ padding: "14px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <Phone size={13} color="var(--tier-nurture)" />
-                        <a href={`tel:${dmPhone}`} style={{ color: "var(--text-main)", fontSize: "0.82rem", textDecoration: "none" }}>
-                          {dmPhone}
+                        <a
+                          href={`https://wa.me/${dmPhone.replace(/[^0-9]/g, "").length === 10 ? '91' + dmPhone.replace(/[^0-9]/g, "") : dmPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(company.outreach?.whatsapp || 'Hello!')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "var(--tier-nurture)", fontSize: "0.82rem", textDecoration: "none", fontWeight: 600 }}
+                          title="1-Click Send WhatsApp Message"
+                        >
+                          {dmPhone} 💬
                         </a>
                         <button
                           onClick={() => handleCopyText(dmPhone, `phone-${company.id}`)}

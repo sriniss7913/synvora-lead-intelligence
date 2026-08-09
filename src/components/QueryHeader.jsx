@@ -48,43 +48,45 @@ export default function QueryHeader({ onSearch, isSearching }) {
 
       {/* Main Search Bar */}
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 280, position: "relative" }}>
+        <div style={{ flex: "1 1 260px", position: "relative" }}>
           <Search size={18} color="var(--text-muted)" style={{ position: "absolute", left: 14, top: 14 }} />
           <input
             type="text"
             className="glass-input"
-            style={{ width: "100%", paddingLeft: 42, paddingRight: 14, fontSize: "1rem", height: 48 }}
+            style={{ width: "100%", paddingLeft: 42, paddingRight: 14, fontSize: "0.95rem", height: 48 }}
             placeholder="e.g. Manufacturing companies in Chennai with 20-200 employees..."
             value={queryText}
             onChange={(e) => setQueryText(e.target.value)}
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowFilters(!showFilters)}
-          className="btn-secondary"
-          style={{ height: 48, padding: "0 16px" }}
-        >
-          <Filter size={16} /> Filters {showFilters ? "▲" : "▼"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flex: "1 1 auto", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="btn-secondary"
+            style={{ height: 48, padding: "0 16px", flex: "1 1 auto", justifyContent: "center" }}
+          >
+            <Filter size={16} /> Filters {showFilters ? "▲" : "▼"}
+          </button>
 
-        <button
-          type="submit"
-          disabled={isSearching}
-          className="btn-primary"
-          style={{ height: 48, padding: "0 24px", minWidth: 160, justifyContent: "center" }}
-        >
-          {isSearching ? (
-            <>
-              <RefreshCw size={18} className="animate-spin" /> Synthesizing AI Leads...
-            </>
-          ) : (
-            <>
-              <Sparkles size={18} /> Run Lead Intelligence
-            </>
-          )}
-        </button>
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="btn-primary"
+            style={{ height: 48, padding: "0 20px", flex: "2 1 160px", justifyContent: "center" }}
+          >
+            {isSearching ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" /> Synthesizing AI Leads...
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} /> Run Lead Intelligence
+              </>
+            )}
+          </button>
+        </div>
       </form>
 
       {/* Optional Filters Drawer */}

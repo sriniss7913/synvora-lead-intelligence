@@ -12,7 +12,7 @@ export default function LeadStatsOverview({ leads = [] }) {
   const highAiOppCount = safeLeads.filter(l => l && (l.scoreBreakdown?.digitalOpportunity?.score || 0) >= 17).length;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, margin: "20px auto 0 auto", maxWidth: 1400 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, margin: "16px auto 0 auto", maxWidth: 1400 }}>
       
       {/* Metric 1: Total Leads */}
       <div className="glass-panel" style={{ padding: 20, display: "flex", alignItems: "center", gap: 14 }}>

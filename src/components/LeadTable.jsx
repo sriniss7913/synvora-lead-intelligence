@@ -98,8 +98,8 @@ export default function LeadTable({
       </div>
 
       {/* Table Content */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.85rem" }}>
+      <div className="table-responsive">
+        <table style={{ width: "100%", minWidth: 700, borderCollapse: "collapse", textAlign: "left", fontSize: "0.85rem" }}>
           <thead>
             <tr style={{ background: "rgba(15, 23, 42, 0.9)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-light)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               <th style={{ padding: "14px 16px" }}>Company & Industry</th>

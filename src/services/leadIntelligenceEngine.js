@@ -21,7 +21,7 @@ export function saveSettings(settings) {
 }
 
 /** Enrich a real company record with scoring and outreach copy */
-export function enrichRealCompany(rawCompany) {
+export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
   const hasSocialMedia = !!(rawCompany.socialMedia?.facebook || rawCompany.socialMedia?.instagram || rawCompany.socialMedia?.linkedin);
   const sourceCount = rawCompany.sources?.length || 1;
 
@@ -48,7 +48,7 @@ export function enrichRealCompany(rawCompany) {
   };
 
   const scoreData = calculateLeadScore(company);
-  const outreach = generatePersonalizedOutreach(company, scoreData);
+  const outreach = await generatePersonalizedOutreach(company, scoreData, geminiApiKey);
 
   return {
     ...company,
@@ -72,7 +72,7 @@ export function enrichRealCompany(rawCompany) {
  * Merges and deduplicates results from Google Maps, Email Extractor, and Google Search.
  */
 export async function executeLeadDiscovery(queryText, filters = {}, settings = {}) {
-  const { apifyToken, hunterApiKey } = settings;
+  const { apifyToken, hunterApiKey, geminiApiKey } = settings;
 
   if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
 
@@ -150,7 +150,14 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   );
 
   // 4. Score, enrich, and return
-  return enrichedWithEmail.map((company, i) =>
-    enrichRealCompany({ ...company, id: `lead-real-${Date.now()}-${i}` })
-  );
+  const finalLeads = [];
+  for (let i = 0; i < enrichedWithEmail.length; i++) {
+    const company = enrichedWithEmail[i];
+    const enriched = await enrichRealCompany(
+      { ...company, id: `lead-real-${Date.now()}-${i}` },
+      geminiApiKey
+    );
+    finalLeads.push(enriched);
+  }
+  return finalLeads;
 }

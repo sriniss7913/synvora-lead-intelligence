@@ -4,6 +4,7 @@ import { X, Sliders, Key, ShieldCheck, Check, Info, ExternalLink, AlertTriangle 
 export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const [apifyToken, setApifyToken] = useState(settings.apifyToken || "");
   const [hunterApiKey, setHunterApiKey] = useState(settings.hunterApiKey || "");
+  const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = (e) => {
@@ -11,6 +12,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
     onSaveSettings({
       apifyToken: apifyToken.trim(),
       hunterApiKey: hunterApiKey.trim(),
+      geminiApiKey: geminiApiKey.trim(),
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -21,6 +23,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
 
   const hasApify = apifyToken.trim().length > 10;
   const hasHunter = hunterApiKey.trim().length > 10;
+  const hasGemini = geminiApiKey.trim().length > 10;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -139,17 +142,69 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
             </div>
           </div>
 
+          {/* Gemini AI Section */}
+          <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasGemini ? 'rgba(168,85,247,0.5)' : 'var(--border-light)'}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: "1.3rem" }}>✨</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                  Gemini AI — Personalized Outreach
+                  {hasGemini && <span style={{ marginLeft: 8, color: "#a855f7", fontSize: "0.72rem" }}>✅ Connected</span>}
+                  <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "var(--text-dim)", fontWeight: 400 }}>(Optional)</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Generates a unique email, WhatsApp & call script per lead using AI • Free: 1,500 requests/day
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.85rem", marginBottom: 8 }}
+              placeholder="AIza..."
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <ShieldCheck size={11} color="var(--tier-nurture)" /> Stored locally in your browser only
+              </div>
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank" rel="noreferrer"
+                style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+              >
+                Get free Gemini key (AI Studio) <ExternalLink size={10} />
+              </a>
+            </div>
+
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ fontSize: "0.75rem", color: "var(--accent-cyan)", cursor: "pointer" }}>📖 Setup guide (1 minute)</summary>
+              <ol style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, paddingLeft: 16, lineHeight: 1.7 }}>
+                <li>Go to <strong>aistudio.google.com</strong> → Sign in with Google</li>
+                <li>Click <strong>"Get API Key"</strong> → <strong>"Create API key"</strong></li>
+                <li>Copy the key (starts with "AIza...")</li>
+                <li>Paste above → Each lead gets a unique AI-written message</li>
+                <li>Free tier: 1,500 requests/day — plenty for normal usage</li>
+              </ol>
+            </details>
+          </div>
+
           {/* Status Banner */}
           {!hasApify && (
             <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#fbbf24", marginBottom: 20, display: "flex", gap: 8 }}>
               <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span><strong>Apify token required</strong> — without it, no real lead data can be fetched. The app will show an error prompting you to add your token.</span>
+              <span><strong>Apify token required</strong> — without it, no real lead data can be fetched.</span>
             </div>
           )}
 
           {hasApify && (
             <div style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#6ee7b7", marginBottom: 20 }}>
-              ✅ <strong>Ready for real leads.</strong> {hasHunter ? "Both Apify + Hunter.io connected." : "Apify connected. Add Hunter.io for email discovery."}
+              ✅ <strong>Ready for real leads.</strong>{" "}
+              {hasGemini ? "Gemini AI will write unique outreach per lead. " : "Add Gemini key for AI-written outreach. "}
+              {hasHunter ? "Hunter.io connected for email enrichment." : ""}
             </div>
           )}
 

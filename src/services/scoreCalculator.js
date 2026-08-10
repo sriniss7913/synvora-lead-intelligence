@@ -1,140 +1,152 @@
 /**
- * Synvora 6-Factor AI Lead Scoring Engine
- * Evaluates business fit, pain points, digital opportunity, company size, decision maker, and triggers.
+ * Synvora Real-Signal Lead Scoring Engine
+ * Scores leads based on ACTUAL data returned by Apify Google Maps scraper.
+ * No fake fields — only signals we genuinely have from real company data.
+ *
+ * 100-point scale across 5 real factors:
+ *   1. Industry Fit        (25 pts) — category from Google Maps
+ *   2. Business Activity   (25 pts) — review volume = market presence
+ *   3. Pain / Opportunity  (20 pts) — rating score = gap Synvora can fill
+ *   4. Reachability        (20 pts) — phone/email/website/social availability
+ *   5. Data Confidence     (10 pts) — verified across how many sources
  */
 
+// Industries Synvora targets for AI automation (highest priority first)
+const INDUSTRY_TIERS = {
+  hot: [
+    'elevator', 'lift', 'escalator', 'hvac', 'fire', 'security system', 'cctv', 'atm',
+    'vending', 'facility', 'building automation', 'electromechanical'
+  ],
+  warm: [
+    'manufacturing', 'engineering', 'industrial', 'fabricat', 'automobile', 'automotive',
+    'pharma', 'chemical', 'packaging', 'printing', 'metal', 'steel', 'foundry',
+    'logistics', 'transport', 'warehouse', 'supply chain', 'courier'
+  ],
+  nurture: [
+    'construction', 'real estate', 'builder', 'developer', 'contractor',
+    'healthcare', 'hospital', 'clinic', 'diagnostic', 'education', 'school', 'college',
+    'retail', 'wholesale', 'trading', 'distribution', 'import', 'export'
+  ]
+};
+
+function getIndustryFitScore(category = '', industry = '') {
+  const combined = `${category} ${industry}`.toLowerCase();
+
+  for (const keyword of INDUSTRY_TIERS.hot) {
+    if (combined.includes(keyword)) {
+      return { score: 25, reason: `🎯 Perfect target: "${category}" directly aligns with Synvora's core automation solutions.` };
+    }
+  }
+  for (const keyword of INDUSTRY_TIERS.warm) {
+    if (combined.includes(keyword)) {
+      return { score: 20, reason: `✅ Strong fit: "${category}" — high operational complexity, ideal for AI automation.` };
+    }
+  }
+  for (const keyword of INDUSTRY_TIERS.nurture) {
+    if (combined.includes(keyword)) {
+      return { score: 14, reason: `🔄 Moderate fit: "${category}" — standard business processes with automation potential.` };
+    }
+  }
+  return { score: 8, reason: `ℹ️ General business — requires qualification to assess automation fit.` };
+}
+
+function getBusinessActivityScore(reviewsCount = 0, hasWebsite = false) {
+  // Review volume = proxy for business size, market presence, and customer base
+  if (reviewsCount >= 200) return { score: 25, reason: `🏆 Highly active: ${reviewsCount} reviews — large customer base, established business with budget.` };
+  if (reviewsCount >= 100) return { score: 22, reason: `💪 Very active: ${reviewsCount} reviews — established SME, likely has operational scale needs.` };
+  if (reviewsCount >= 50)  return { score: 18, reason: `📈 Active business: ${reviewsCount} reviews — growing customer base, right size for Synvora.` };
+  if (reviewsCount >= 20)  return { score: 14, reason: `🔧 Growing business: ${reviewsCount} reviews — early stage, some traction.` };
+  if (reviewsCount >= 5)   return { score: 10, reason: `🌱 Early stage: ${reviewsCount} reviews — low Google presence, may need digital nurturing first.` };
+  if (hasWebsite)          return { score: 12, reason: `🌐 Has a website but no Google reviews — active business operating offline/traditionally.` };
+  return { score: 5, reason: `❓ No reviews, no website — minimal verifiable activity, lower priority.` };
+}
+
+function getPainOpportunityScore(rating, reviewsCount) {
+  // No rating = no Google Maps optimization = digital gap Synvora can exploit
+  if (!rating && !reviewsCount) {
+    return { score: 18, reason: `🚀 Not on Google Maps actively — major digital gap, high opportunity for Synvora digital setup.` };
+  }
+  if (!rating) {
+    return { score: 16, reason: `📍 Has reviews but no rating — irregular online management, weak digital presence.` };
+  }
+
+  // Low rating = unhappy customers = clear pain point, high urgency
+  if (rating < 3.0) return { score: 20, reason: `🔴 Low rating (${rating}⭐) — unhappy customers signal operational issues Synvora can solve urgently.` };
+  if (rating < 3.5) return { score: 18, reason: `🟠 Below-average rating (${rating}⭐) — customer experience gap, strong pain point.` };
+  if (rating < 4.0) return { score: 14, reason: `🟡 Average rating (${rating}⭐) — room for improvement, moderate urgency.` };
+  if (rating < 4.5) return { score: 10, reason: `🟢 Good rating (${rating}⭐) — reasonably well-run, lower urgency but open to growth tools.` };
+  return { score: 7, reason: `✨ Excellent rating (${rating}⭐) — well-managed business, pitch as scale & efficiency tools.` };
+}
+
+function getReachabilityScore(phone, email, website, socialMedia) {
+  let score = 0;
+  const details = [];
+
+  if (phone) { score += 8; details.push('📞 phone'); }
+  if (email) { score += 6; details.push('📧 email'); }
+  if (website) { score += 4; details.push('🌐 website'); }
+  if (socialMedia?.facebook || socialMedia?.instagram || socialMedia?.linkedin) {
+    score += 2;
+    details.push('📱 social media');
+  }
+
+  const maxScore = 20;
+  const actualScore = Math.min(score, maxScore);
+
+  if (details.length === 0) return { score: 0, reason: `❌ No contact info found — cannot reach this lead.` };
+  return { score: actualScore, reason: `✅ Reachable via: ${details.join(', ')}.` };
+}
+
+function getDataConfidenceScore(sources = []) {
+  const count = Array.isArray(sources) ? sources.length : 1;
+  if (count >= 3) return { score: 10, reason: `🔒 Verified across 3 data sources — highest confidence in data accuracy.` };
+  if (count === 2) return { score: 7, reason: `✅ Cross-verified across 2 data sources.` };
+  return { score: 4, reason: `ℹ️ Single source data — lower confidence, needs manual verification.` };
+}
+
 export function calculateLeadScore(company) {
-  let scoreBreakdown = {
-    businessFit: { score: 0, max: 25, reason: "" },
-    likelyPainPoint: { score: 0, max: 25, reason: "" },
-    digitalOpportunity: { score: 0, max: 20, reason: "" },
-    companySize: { score: 0, max: 10, reason: "" },
-    decisionMakerIdentified: { score: 0, max: 10, reason: "" },
-    recentTrigger: { score: 0, max: 10, reason: "" }
-  };
+  const industryFit    = getIndustryFitScore(company.category, company.industry);
+  const bizActivity    = getBusinessActivityScore(company.reviewsCount, !!company.website);
+  const painOppty      = getPainOpportunityScore(company.rating, company.reviewsCount);
+  const reachability   = getReachabilityScore(company.phone, company.email || company.companyEmail, company.website, company.socialMedia);
+  const dataConfidence = getDataConfidenceScore(company.sources);
 
-  const industry = (company.industry || "").toLowerCase();
-  const techSignals = company.techSignals || [];
-  const expansionSignals = company.expansionSignals || [];
-  const potentialProblems = company.potentialProblems || [];
-  const sizeStr = (company.companySize || company.sizeCategory || "").toLowerCase();
-  const dm = company.decisionMaker || {};
-  const triggers = company.triggers || "";
+  const totalScore =
+    industryFit.score +
+    bizActivity.score +
+    painOppty.score +
+    reachability.score +
+    dataConfidence.score;
 
-  // 1. Business Fit (25 pts max)
-  // Target industries: Manufacturing, Engineering, Healthcare, EdTech, SMEs, Logistics, Services
-  if (industry.includes("manufacturing") || industry.includes("engineering")) {
-    scoreBreakdown.businessFit.score = 25;
-    scoreBreakdown.businessFit.reason = "High target match: Capital-intensive operations ripe for workflow automation & AI.";
-  } else if (industry.includes("healthcare") || industry.includes("logistics") || industry.includes("education") || industry.includes("sme")) {
-    scoreBreakdown.businessFit.score = 22;
-    scoreBreakdown.businessFit.reason = "Strong target match: High volume client interactions & operational processes.";
-  } else if (industry.includes("tech") || industry.includes("saas") || industry.includes("startup")) {
-    scoreBreakdown.businessFit.score = 20;
-    scoreBreakdown.businessFit.reason = "Good fit: High tech receptivity looking for AI speed multipliers.";
-  } else {
-    scoreBreakdown.businessFit.score = 14;
-    scoreBreakdown.businessFit.reason = "Moderate business fit based on industry profile.";
-  }
+  let tier, tierBadgeClass;
+  if      (totalScore >= 75) { tier = 'Hot Lead';   tierBadgeClass = 'badge-hot'; }
+  else if (totalScore >= 55) { tier = 'Warm Lead';  tierBadgeClass = 'badge-warm'; }
+  else if (totalScore >= 35) { tier = 'Nurture';    tierBadgeClass = 'badge-nurture'; }
+  else                       { tier = 'Ignore';     tierBadgeClass = 'badge-ignore'; }
 
-  // 2. Likely Pain Point (25 pts max)
-  // Evaluates operational bottlenecks, manual processes, delayed RFQs, dispatch issues
-  const totalProblems = potentialProblems.length;
-  if (totalProblems >= 3 || triggers.toLowerCase().includes("manual") || triggers.toLowerCase().includes("bottleneck") || triggers.toLowerCase().includes("delay")) {
-    scoreBreakdown.likelyPainPoint.score = 25;
-    scoreBreakdown.likelyPainPoint.reason = "Severe pain point detected: Critical operational delay, manual quotation, or dispatch bottleneck.";
-  } else if (totalProblems >= 2 || techSignals.some(s => s.toLowerCase().includes("manual") || s.toLowerCase().includes("legacy"))) {
-    scoreBreakdown.likelyPainPoint.score = 20;
-    scoreBreakdown.likelyPainPoint.reason = "Clear pain point identified: Multi-step manual handoffs and fragmented tools.";
-  } else if (totalProblems >= 1) {
-    scoreBreakdown.likelyPainPoint.score = 15;
-    scoreBreakdown.likelyPainPoint.reason = "Moderate pain point detected from digital audit.";
-  } else {
-    scoreBreakdown.likelyPainPoint.score = 10;
-    scoreBreakdown.likelyPainPoint.reason = "Potential standard operational friction.";
-  }
+  // Build a dynamic "why contact" reason using actual data
+  const contactReasons = [];
+  if (company.rating && company.rating < 3.5) contactReasons.push(`${company.rating}⭐ rating signals customer pain`);
+  if (!company.rating) contactReasons.push('no Google Maps optimization yet');
+  if (company.reviewsCount > 50) contactReasons.push(`${company.reviewsCount} reviews = established business`);
+  if (company.phone && company.email) contactReasons.push('multiple contact channels available');
+  if (company.sources?.length > 1) contactReasons.push(`verified across ${company.sources.length} sources`);
 
-  // 3. Digital / AI Opportunity (20 pts max)
-  // Assesses digital maturity & AI gap
-  const mat = (company.digitalMaturity || "").toLowerCase();
-  if (mat.includes("low") || mat.includes("legacy") || techSignals.some(s => s.toLowerCase().includes("no automated") || s.toLowerCase().includes("excel"))) {
-    scoreBreakdown.digitalOpportunity.score = 20;
-    scoreBreakdown.digitalOpportunity.reason = "High AI opportunity: Operating on legacy ERP / manual sheets with immense ROI from Synvora AI.";
-  } else if (mat.includes("moderate")) {
-    scoreBreakdown.digitalOpportunity.score = 17;
-    scoreBreakdown.digitalOpportunity.reason = "Strong opportunity: Core digital setup exists; ready for AI automation layer.";
-  } else {
-    scoreBreakdown.digitalOpportunity.score = 12;
-    scoreBreakdown.digitalOpportunity.reason = "Moderate opportunity: Cloud tools active, ready for niche AI agents.";
-  }
-
-  // 4. Company Size (10 pts max)
-  // Ideal size: 20 - 200 employees
-  if (sizeStr.includes("20-50") || sizeStr.includes("51-200") || sizeStr.includes("85") || sizeStr.includes("140") || sizeStr.includes("60") || sizeStr.includes("75") || sizeStr.includes("110")) {
-    scoreBreakdown.companySize.score = 10;
-    scoreBreakdown.companySize.reason = "Sweet spot (20-200 emp): Fast decision-making with sufficient budget scale.";
-  } else if (sizeStr.includes("201-500") || sizeStr.includes("10-19") || sizeStr.includes("45")) {
-    scoreBreakdown.companySize.score = 8;
-    scoreBreakdown.companySize.reason = "Good company size tier for Synvora engagements.";
-  } else {
-    scoreBreakdown.companySize.score = 5;
-    scoreBreakdown.companySize.reason = "Acceptable company size.";
-  }
-
-  // 5. Decision-Maker Identified (10 pts max)
-  // Key roles: Founder, Owner, CEO, COO, Operations Head, VP Tech, IT Manager
-  const title = (dm.title || dm.persona || "").toLowerCase();
-  if (dm.name && (title.includes("founder") || title.includes("owner") || title.includes("ceo") || title.includes("coo") || title.includes("managing director") || title.includes("operations") || title.includes("vp") || title.includes("head"))) {
-    scoreBreakdown.decisionMakerIdentified.score = 10;
-    scoreBreakdown.decisionMakerIdentified.reason = `Verified executive lead identified: ${dm.name} (${dm.title || 'Decision Maker'}).`;
-  } else if (dm.name) {
-    scoreBreakdown.decisionMakerIdentified.score = 7;
-    scoreBreakdown.decisionMakerIdentified.reason = `Contact identified: ${dm.name}.`;
-  } else {
-    scoreBreakdown.decisionMakerIdentified.score = 2;
-    scoreBreakdown.decisionMakerIdentified.reason = "Generic company contact only.";
-  }
-
-  // 6. Recent Business Trigger (10 pts max)
-  // Expansion, new plant, contract win, hiring blitz
-  if (triggers.length > 5 || expansionSignals.length > 0) {
-    scoreBreakdown.recentTrigger.score = 10;
-    scoreBreakdown.recentTrigger.reason = `Active growth trigger: "${triggers || expansionSignals[0]}".`;
-  } else {
-    scoreBreakdown.recentTrigger.score = 4;
-    scoreBreakdown.recentTrigger.reason = "Standard baseline business activity.";
-  }
-
-  const totalScore = 
-    scoreBreakdown.businessFit.score +
-    scoreBreakdown.likelyPainPoint.score +
-    scoreBreakdown.digitalOpportunity.score +
-    scoreBreakdown.companySize.score +
-    scoreBreakdown.decisionMakerIdentified.score +
-    scoreBreakdown.recentTrigger.score;
-
-  let tier = "Ignore";
-  let tierBadgeClass = "badge-ignore";
-
-  if (totalScore >= 80) {
-    tier = "Hot lead";
-    tierBadgeClass = "badge-hot";
-  } else if (totalScore >= 60) {
-    tier = "Warm lead";
-    tierBadgeClass = "badge-warm";
-  } else if (totalScore >= 40) {
-    tier = "Nurture";
-    tierBadgeClass = "badge-nurture";
-  } else {
-    tier = "Ignore";
-    tierBadgeClass = "badge-ignore";
-  }
+  const whyContactReason = contactReasons.length > 0
+    ? `${company.companyName} is a strong Synvora prospect because: ${contactReasons.join('; ')}.`
+    : `${company.companyName} matches Synvora's target profile in the ${company.category || 'business'} sector in ${company.location || 'the region'}.`;
 
   return {
     totalScore,
     tier,
     tierBadgeClass,
-    breakdown: scoreBreakdown,
-    whyContactReason: `Synvora should contact ${company.companyName} because they are ${triggers.toLowerCase().includes('expand') ? 'rapidly expanding' : 'facing operational bottlenecks'} with ${potentialProblems[0] || 'manual workflow challenges'}, making their decision-maker (${dm.name || 'Executive team'}) highly receptive to Synvora's AI automation.`
+    breakdown: {
+      industryFit:      { score: industryFit.score,    max: 25, reason: industryFit.reason },
+      businessActivity: { score: bizActivity.score,    max: 25, reason: bizActivity.reason },
+      painOpportunity:  { score: painOppty.score,      max: 20, reason: painOppty.reason },
+      reachability:     { score: reachability.score,   max: 20, reason: reachability.reason },
+      dataConfidence:   { score: dataConfidence.score, max: 10, reason: dataConfidence.reason }
+    },
+    whyContactReason
   };
 }

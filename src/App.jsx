@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Sliders } from "lucide-react";
+import { getCurrentPosition, reverseGeocode } from "./services/apifyService";
 import Navbar from "./components/Navbar";
 import QueryHeader from "./components/QueryHeader";
 import LeadStatsOverview from "./components/LeadStatsOverview";
@@ -26,7 +27,8 @@ export default function App() {
   const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "" });
   const [activeView, setActiveView] = useState("table"); // 'table' | 'kanban' | 'history'
   const [isSearching, setIsSearching] = useState(false);
-  const [searchProgress, setSearchProgress] = useState(null);
+  const [progressSteps, setProgressSteps] = useState([]); // array of { msg, done }
+  const progressIntervalRef = useRef(null);
 
   // Modals
   const [selectedLeadForScore, setSelectedLeadForScore] = useState(null);
@@ -58,6 +60,39 @@ export default function App() {
     } catch (e) {}
   };
 
+  const PROGRESS_STEPS = [
+    { msg: '🔗 Connecting to Apify...', delay: 0 },
+    { msg: '🤖 Launching browser scraper...', delay: 3000 },
+    { msg: '🗺️ Searching Google Maps...', delay: 8000 },
+    { msg: '📍 Crawling business listings...', delay: 18000 },
+    { msg: '📞 Extracting phone numbers & websites...', delay: 32000 },
+    { msg: '🔗 Running email enrichment (Hunter.io)...', delay: 50000 },
+    { msg: '🧠 Scoring and ranking leads...', delay: 70000 },
+    { msg: '✅ Almost done, packaging results...', delay: 90000 },
+  ];
+
+  const startProgressAnimation = () => {
+    setProgressSteps([{ msg: PROGRESS_STEPS[0].msg, done: false }]);
+    let stepIdx = 1;
+    progressIntervalRef.current = setInterval(() => {
+      if (stepIdx < PROGRESS_STEPS.length) {
+        setProgressSteps(prev => [
+          ...prev.map((s, i) => i === prev.length - 1 ? { ...s, done: true } : s),
+          { msg: PROGRESS_STEPS[stepIdx].msg, done: false }
+        ]);
+        stepIdx++;
+      }
+    }, 3000);
+  };
+
+  const stopProgressAnimation = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setProgressSteps([]);
+  };
+
   const handleSearch = async (queryText, filters) => {
     if (!settings.apifyToken) {
       triggerToast("⚠️ Please add your Apify API token in Settings first!", true);
@@ -66,39 +101,72 @@ export default function App() {
     }
 
     setIsSearching(true);
-    setSearchProgress("🔍 Starting search...");
+    startProgressAnimation();
+
+    let enrichedFilters = { ...filters };
+
+    // Handle Near Me GPS search
+    if (filters.city === '📍 Near Me (GPS)') {
+      try {
+        setProgressSteps([{ msg: '📡 Getting your GPS location...', done: false }]);
+        const coords = await getCurrentPosition();
+        const cityName = await reverseGeocode(coords.lat, coords.lng);
+        enrichedFilters = { ...filters, coords, nearMeCity: cityName };
+        setProgressSteps([
+          { msg: `📍 Location detected: ${cityName}`, done: true },
+          { msg: '🔗 Connecting to Apify...', done: false }
+        ]);
+        // Resume normal animation after GPS step
+        let stepIdx = 2;
+        progressIntervalRef.current = setInterval(() => {
+          if (stepIdx < PROGRESS_STEPS.length) {
+            setProgressSteps(prev => [
+              ...prev.map((s, i) => i === prev.length - 1 ? { ...s, done: true } : s),
+              { msg: PROGRESS_STEPS[stepIdx].msg, done: false }
+            ]);
+            stepIdx++;
+          }
+        }, 3000);
+      } catch (err) {
+        stopProgressAnimation();
+        setIsSearching(false);
+        if (err.message === 'GPS_PERMISSION_DENIED') {
+          triggerToast('⚠️ GPS permission denied. Please allow location access and try again.', true);
+        } else {
+          triggerToast('⚠️ Could not get GPS location. Try selecting a city manually.', true);
+        }
+        return;
+      }
+    }
 
     try {
-      const onProgress = (msg, pct) => setSearchProgress(`${msg}`);
-
-      const newLeads = await executeLeadDiscovery(queryText, filters, settings, onProgress);
+      const newLeads = await executeLeadDiscovery(queryText, enrichedFilters, settings);
 
       if (newLeads.length === 0) {
-        triggerToast("No new leads found — all results already in your history.");
+        triggerToast('No new leads found — all results already in your history.');
         setLeads([]);
         return;
       }
 
-      // Save freshly discovered leads to IndexedDB history
       await bulkAddToHistory(newLeads);
       await refreshHistoryCount();
-
-      // Show in current session
       setLeads(newLeads);
-      triggerToast(`✅ ${newLeads.length} real leads discovered and saved to history!`);
+
+      const cityLabel = enrichedFilters.nearMeCity ? `near you (${enrichedFilters.nearMeCity})` : (enrichedFilters.city || 'this area');
+      triggerToast(`✅ ${newLeads.length} real leads found ${cityLabel} and saved to history!`);
     } catch (err) {
-      console.error("Discovery error:", err);
-      if (err.message === "APIFY_TOKEN_MISSING") {
-        triggerToast("⚠️ Apify token not set. Please configure in Settings.", true);
+      console.error('Discovery error:', err);
+      if (err.message === 'APIFY_TOKEN_MISSING') {
+        triggerToast('⚠️ Apify token not set. Please configure in Settings.', true);
         setShowSettingsModal(true);
-      } else if (err.message?.startsWith("SCRAPE_FAILED")) {
-        triggerToast(`Search failed: ${err.message.replace("SCRAPE_FAILED: ", "")}`, true);
+      } else if (err.message?.startsWith('SCRAPE_FAILED')) {
+        triggerToast(`Search failed: ${err.message.replace('SCRAPE_FAILED: ', '')}`, true);
       } else {
-        triggerToast("Search failed. Please try again.", true);
+        triggerToast('Search failed. Please try again.', true);
       }
     } finally {
+      stopProgressAnimation();
       setIsSearching(false);
-      setSearchProgress(null);
     }
   };
 
@@ -195,11 +263,39 @@ export default function App() {
             {/* Fresh Search UI */}
             <QueryHeader onSearch={handleSearch} isSearching={isSearching} />
 
-            {/* Search Progress */}
-            {isSearching && searchProgress && (
-              <div className="glass-panel" style={{ margin: "0 0 12px 0", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 16, height: 16, border: "2px solid var(--accent-cyan)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
-                <span style={{ fontSize: "0.9rem", color: "var(--accent-cyan)", fontWeight: 600 }}>{searchProgress}</span>
+            {/* Dynamic Step-by-Step Progress Tracker */}
+            {isSearching && progressSteps.length > 0 && (
+              <div className="glass-panel" style={{ margin: "12px 0", padding: "16px 20px", border: "1px solid rgba(6,182,212,0.25)" }}>
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+                  🔍 Live Search Progress
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {progressSteps.map((step, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, animation: i === progressSteps.length - 1 ? "fadeIn 0.4s ease" : "none" }}>
+                      {step.done ? (
+                        <span style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(16,185,129,0.15)", border: "1px solid #10b981", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#10b981", flexShrink: 0 }}>✓</span>
+                      ) : (
+                        <span style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--accent-cyan)", borderTopColor: "transparent", animation: "spin 0.8s linear infinite", flexShrink: 0, display: "inline-block" }} />
+                      )}
+                      <span style={{
+                        fontSize: "0.88rem",
+                        color: step.done ? "var(--text-muted)" : "var(--accent-cyan)",
+                        fontWeight: step.done ? 400 : 600,
+                        textDecoration: step.done ? "none" : "none"
+                      }}>
+                        {step.msg}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 12, height: 3, borderRadius: 4, background: "rgba(255,255,255,0.06)" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 4,
+                    background: "linear-gradient(90deg, var(--accent-cyan), var(--accent-indigo))",
+                    width: `${Math.min(95, (progressSteps.filter(s => s.done).length / PROGRESS_STEPS.length) * 100)}%`,
+                    transition: "width 0.5s ease"
+                  }} />
+                </div>
               </div>
             )}
 

@@ -56,6 +56,7 @@ export const INDUSTRY_PRESETS = [
 ];
 
 export const CITIES_LIST = [
+  "📍 Near Me (GPS)",
   "All Locations",
   "Chennai",
   "Bangalore",

@@ -78,15 +78,16 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
     throw new Error("APIFY_TOKEN_MISSING");
   }
 
-  const city = filters.city && filters.city !== "All Locations" ? filters.city : "";
+  const city = filters.city && filters.city !== 'All Locations' ? filters.city : '';
   const count = parseInt(filters.leadCount || 10, 10);
+  const coords = filters.coords || null; // { lat, lng } from GPS
 
   if (onProgress) onProgress("🔍 Searching Google Maps via Apify...", 10);
 
   // 1. Scrape real businesses from Google Maps
   let rawResults;
   try {
-    rawResults = await scrapeGoogleMapsLeads(queryText, city, count, apifyToken);
+    rawResults = await scrapeGoogleMapsLeads(queryText, city, count, apifyToken, coords);
   } catch (err) {
     if (err.message === 'APIFY_TOKEN_MISSING') throw err;
     throw new Error(`SCRAPE_FAILED: ${err.message}`);

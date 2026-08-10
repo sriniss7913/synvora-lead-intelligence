@@ -5,7 +5,7 @@
  */
 
 const APIFY_BASE = 'https://api.apify.com/v2';
-const ACTOR_ID = 'compass~google-maps-scraper';
+const ACTOR_ID = 'compass~crawler-google-places';
 
 /**
  * Scrape real business listings from Google Maps via Apify

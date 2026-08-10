@@ -2,13 +2,13 @@
  * Synvora Outreach Generator
  * Uses Gemini API to generate genuinely unique, personalized outreach per lead.
  * Includes automatic model fallback and seamless smart-template fallback
- * on rate limits (RESOURCE_EXHAUSTED / 429).
+ * on rate limits (RESOURCE_EXHAUSTED / 429 / 404).
  */
 
 const MODELS = [
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-2.0-flash-lite'
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-latest'
 ];
 
 /**
@@ -69,12 +69,10 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
         body: JSON.stringify(payload)
       });
 
-      if (res.status === 429 || res.status === 403) {
-        console.warn(`Outreach model ${modelName} rate limited (${res.status}), trying fallback...`);
+      if (!res.ok) {
+        console.warn(`Outreach model ${modelName} returned HTTP ${res.status}, trying fallback model...`);
         continue;
       }
-
-      if (!res.ok) throw new Error(`Gemini API ${res.status}`);
 
       const data = await res.json();
       const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -94,7 +92,7 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
     }
   }
 
-  throw new Error('All Gemini outreach models rate limited');
+  throw new Error('All Gemini outreach models unavailable or rate limited');
 }
 
 /**

@@ -3,14 +3,14 @@
  * Uses Gemini's built-in Google Search Grounding to fetch live, structured
  * real-world business listings in 3-5 seconds without third-party scrapers.
  *
- * Includes multi-model automatic fallback (gemini-2.0-flash -> gemini-1.5-flash -> gemini-2.0-flash-lite)
- * to handle free tier rate limits (RESOURCE_EXHAUSTED / 429).
+ * Includes multi-model automatic fallback (gemini-2.0-flash -> gemini-2.0-flash-lite -> gemini-1.5-flash-latest)
+ * to handle rate limits and endpoint variations.
  */
 
 const MODELS = [
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-2.0-flash-lite'
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-latest'
 ];
 
 /**
@@ -50,9 +50,10 @@ IMPORTANT:
     }
   };
 
+  let lastStatus = null;
   let lastError = null;
 
-  // Try models sequentially if one hits rate limits
+  // Try models sequentially if one fails or hits rate limits
   for (const modelName of MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
@@ -62,16 +63,12 @@ IMPORTANT:
         body: JSON.stringify(payload)
       });
 
-      if (response.status === 429 || response.status === 403) {
-        const errorText = await response.text();
-        console.warn(`Model ${modelName} rate limited (${response.status}), trying fallback model...`);
-        lastError = errorText;
-        continue; // Try next model
-      }
-
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Gemini API ${response.status}: ${errorText}`);
+        console.warn(`Model ${modelName} returned HTTP ${response.status}, trying fallback...`, errorText);
+        lastStatus = response.status;
+        lastError = errorText;
+        continue; // Try next model in loop
       }
 
       const data = await response.json();
@@ -97,16 +94,17 @@ IMPORTANT:
 
       return mapGeminiResults(parsedResults, city);
     } catch (err) {
-      if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
-        lastError = err.message;
-        continue;
-      }
-      throw err;
+      console.warn(`Error trying ${modelName}:`, err.message);
+      lastError = err.message;
+      continue;
     }
   }
 
-  // If all models hit rate limit
-  throw new Error('Gemini API free tier rate limit reached (RESOURCE_EXHAUSTED). Please wait ~10 seconds or switch to Apify Google Maps scraper.');
+  // If all models failed
+  if (lastStatus === 429) {
+    throw new Error('Gemini API free tier rate limit reached (RESOURCE_EXHAUSTED). Please wait ~10 seconds or switch to Apify Google Maps scraper.');
+  }
+  throw new Error(`Gemini API search failed: ${lastError || 'All models unavailable'}`);
 }
 
 function mapGeminiResults(results, city) {

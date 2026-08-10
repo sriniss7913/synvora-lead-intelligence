@@ -2,16 +2,19 @@
  * Gemini AI Live Web Search Lead Discovery Engine
  * Uses Gemini's built-in Google Search Grounding to fetch live, structured
  * real-world business listings in 3-5 seconds without third-party scrapers.
+ *
+ * Includes multi-model automatic fallback (gemini-2.0-flash -> gemini-1.5-flash -> gemini-2.0-flash-lite)
+ * to handle free tier rate limits (RESOURCE_EXHAUSTED / 429).
  */
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-lite'
+];
 
 /**
- * Search real business leads using Gemini 2.0 with Google Search Grounding
- * @param {string} queryText - e.g. "Elevator companies in Chennai"
- * @param {string} city - e.g. "Chennai"
- * @param {number} count - number of leads requested
- * @param {string} geminiApiKey - User's Gemini API Key
+ * Search real business leads using Gemini with Google Search Grounding
  */
 export async function searchLeadsWithGemini(queryText, city, count = 10, geminiApiKey) {
   if (!geminiApiKey) throw new Error('GEMINI_TOKEN_MISSING');
@@ -47,42 +50,63 @@ IMPORTANT:
     }
   };
 
-  const response = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini Search API error ${response.status}: ${errorText}`);
-  }
+  // Try models sequentially if one hits rate limits
+  for (const modelName of MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-  // Extract JSON array string
-  const cleanJson = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-  let parsedResults = [];
-  try {
-    parsedResults = JSON.parse(cleanJson);
-    if (!Array.isArray(parsedResults)) {
-      if (parsedResults.companies && Array.isArray(parsedResults.companies)) {
-        parsedResults = parsedResults.companies;
-      } else {
-        parsedResults = [];
+      if (response.status === 429 || response.status === 403) {
+        const errorText = await response.text();
+        console.warn(`Model ${modelName} rate limited (${response.status}), trying fallback model...`);
+        lastError = errorText;
+        continue; // Try next model
       }
-    }
-  } catch (e) {
-    console.warn('Could not parse JSON directly, trying substring extraction:', e.message);
-    const match = rawText.match(/\[\s*\{.*\}\s*\]/s);
-    if (match) {
-      try { parsedResults = JSON.parse(match[0]); } catch {}
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleanJson = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      let parsedResults = [];
+      try {
+        parsedResults = JSON.parse(cleanJson);
+        if (!Array.isArray(parsedResults)) {
+          if (parsedResults.companies && Array.isArray(parsedResults.companies)) {
+            parsedResults = parsedResults.companies;
+          } else {
+            parsedResults = [];
+          }
+        }
+      } catch (e) {
+        const match = rawText.match(/\[\s*\{.*\}\s*\]/s);
+        if (match) {
+          try { parsedResults = JSON.parse(match[0]); } catch {}
+        }
+      }
+
+      return mapGeminiResults(parsedResults, city);
+    } catch (err) {
+      if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+        lastError = err.message;
+        continue;
+      }
+      throw err;
     }
   }
 
-  return mapGeminiResults(parsedResults, city);
+  // If all models hit rate limit
+  throw new Error('Gemini API free tier rate limit reached (RESOURCE_EXHAUSTED). Please wait ~10 seconds or switch to Apify Google Maps scraper.');
 }
 
 function mapGeminiResults(results, city) {

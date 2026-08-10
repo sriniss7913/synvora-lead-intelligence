@@ -1,10 +1,15 @@
 /**
  * Synvora Outreach Generator
  * Uses Gemini API to generate genuinely unique, personalized outreach per lead.
- * Falls back to an improved template if no Gemini key is provided.
+ * Includes automatic model fallback and seamless smart-template fallback
+ * on rate limits (RESOURCE_EXHAUSTED / 429).
  */
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-lite'
+];
 
 /**
  * Build a rich company context string for the Gemini prompt
@@ -50,37 +55,51 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
   "reasoning": "1 sentence explaining what specific real signal made this outreach angle unique"
 }`;
 
-  const res = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
-    })
-  });
-
-  if (!res.ok) throw new Error(`Gemini API ${res.status}`);
-
-  const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-  // Clean and parse the JSON response
-  const jsonStr = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const parsed = JSON.parse(jsonStr);
-
-  return {
-    email: { subject: parsed.emailSubject, body: parsed.emailBody },
-    whatsapp: parsed.whatsapp,
-    callScript: parsed.callScript,
-    linkedin: `Hi, I came across ${company.companyName} on Google Maps and noticed your ${company.category || 'business'} in ${company.location}. At Synvora, we help similar businesses automate workflows and reduce manual overhead. Would love to connect!`,
-    reasoning: parsed.reasoning,
-    generatedBy: 'gemini'
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
   };
+
+  for (const modelName of MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 429 || res.status === 403) {
+        console.warn(`Outreach model ${modelName} rate limited (${res.status}), trying fallback...`);
+        continue;
+      }
+
+      if (!res.ok) throw new Error(`Gemini API ${res.status}`);
+
+      const data = await res.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonStr = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(jsonStr);
+
+      return {
+        email: { subject: parsed.emailSubject, body: parsed.emailBody },
+        whatsapp: parsed.whatsapp,
+        callScript: parsed.callScript,
+        linkedin: `Hi, I came across ${company.companyName} on Google Maps and noticed your ${company.category || 'business'} in ${company.location}. At Synvora, we help similar businesses automate workflows and reduce manual overhead. Would love to connect!`,
+        reasoning: parsed.reasoning,
+        generatedBy: 'gemini'
+      };
+    } catch (err) {
+      console.warn(`Outreach generation failed on ${modelName}:`, err.message);
+    }
+  }
+
+  throw new Error('All Gemini outreach models rate limited');
 }
 
 /**
  * Improved fallback template — uses all real Apify fields
- * Much better than before: adapts message tone based on real signals
+ * Adapts message tone based on real signals
  */
 function generateTemplateFallback(company, scoreData) {
   const name = company.companyName || 'your company';
@@ -91,9 +110,6 @@ function generateTemplateFallback(company, scoreData) {
   const hasWebsite = !!company.website;
   const hasSocial = !!(company.socialMedia?.facebook || company.socialMedia?.instagram);
 
-  // Angle 1: Low rating = customer experience pain
-  // Angle 2: No online presence = digital gap
-  // Angle 3: High review count = scale / operational complexity
   let angle, painLine, pitchLine;
 
   if (rating && rating < 3.5) {
@@ -144,17 +160,14 @@ www.synvoratech.in`;
 }
 
 /**
- * Main export — tries Gemini first, falls back to smart template
- * @param {Object} company - real company data from Apify
- * @param {Object} scoreData - output from calculateLeadScore
- * @param {string} geminiApiKey - optional Gemini API key
+ * Main export — tries Gemini first, gracefully falls back to template on rate limits
  */
 export async function generatePersonalizedOutreach(company, scoreData, geminiApiKey = '') {
   if (geminiApiKey) {
     try {
       return await generateWithGemini(company, scoreData, geminiApiKey);
     } catch (err) {
-      console.warn('Gemini outreach failed, using template fallback:', err.message);
+      console.warn('Gemini outreach rate limited or failed, using smart template fallback:', err.message);
     }
   }
   return generateTemplateFallback(company, scoreData);

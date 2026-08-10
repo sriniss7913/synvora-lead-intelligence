@@ -5,11 +5,8 @@
  * on rate limits (RESOURCE_EXHAUSTED / 429 / 404).
  */
 
-const MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest'
-];
+const OUTREACH_MODEL = 'gemini-2.0-flash';
+const OUTREACH_URL = `https://generativelanguage.googleapis.com/v1beta/models/${OUTREACH_MODEL}:generateContent`;
 
 /**
  * Build a rich company context string for the Gemini prompt
@@ -60,19 +57,25 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
     generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
   };
 
-  for (const modelName of MODELS) {
+  const MAX_RETRIES = 2;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
-      const res = await fetch(url, {
+      const res = await fetch(`${OUTREACH_URL}?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        console.warn(`Outreach model ${modelName} returned HTTP ${res.status}, trying fallback model...`);
-        continue;
+      if (res.status === 429) {
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 8000));
+          continue;
+        }
+        throw new Error('RATE_LIMIT');
       }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
       const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -88,11 +91,12 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
         generatedBy: 'gemini'
       };
     } catch (err) {
-      console.warn(`Outreach generation failed on ${modelName}:`, err.message);
+      console.warn(`Outreach attempt ${attempt} failed:`, err.message);
+      if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 5000));
     }
   }
 
-  throw new Error('All Gemini outreach models unavailable or rate limited');
+  throw new Error('Gemini outreach generation failed after retries');
 }
 
 /**

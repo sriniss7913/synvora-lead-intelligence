@@ -7,11 +7,9 @@
  * to handle rate limits and endpoint variations.
  */
 
-const MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest'
-];
+// Only gemini-2.0-flash supports Google Search Grounding in v1beta
+const SEARCH_MODEL = 'gemini-2.0-flash';
+const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${SEARCH_MODEL}:generateContent`;
 
 /**
  * Search real business leads using Gemini with Google Search Grounding
@@ -50,25 +48,31 @@ IMPORTANT:
     }
   };
 
-  let lastStatus = null;
-  let lastError = null;
+  let lastError = 'Unknown error';
+  const MAX_RETRIES = 3;
 
-  // Try models sequentially if one fails or hits rate limits
-  for (const modelName of MODELS) {
+  // Retry with exponential backoff on the same model (rate limits are per-minute, not permanent)
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${BASE_URL}?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
+      if (response.status === 429) {
+        const waitSec = attempt * 8; // 8s, 16s, 24s
+        console.warn(`Rate limited (429) on attempt ${attempt}/${MAX_RETRIES}. Waiting ${waitSec}s...`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, waitSec * 1000));
+          continue;
+        }
+        throw new Error(`RATE_LIMIT`);
+      }
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.warn(`Model ${modelName} returned HTTP ${response.status}, trying fallback...`, errorText);
-        lastStatus = response.status;
-        lastError = errorText;
-        continue; // Try next model in loop
+        lastError = `HTTP ${response.status}`;
+        throw new Error(lastError);
       }
 
       const data = await response.json();
@@ -93,18 +97,21 @@ IMPORTANT:
       }
 
       return mapGeminiResults(parsedResults, city);
+
     } catch (err) {
-      console.warn(`Error trying ${modelName}:`, err.message);
+      if (err.message === 'RATE_LIMIT') break;
+      console.warn(`Gemini Search attempt ${attempt} failed:`, err.message);
       lastError = err.message;
-      continue;
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 5000));
+      }
     }
   }
 
-  // If all models failed
-  if (lastStatus === 429) {
-    throw new Error('Gemini API free tier rate limit reached (RESOURCE_EXHAUSTED). Please wait ~10 seconds or switch to Apify Google Maps scraper.');
+  if (lastError === 'RATE_LIMIT') {
+    throw new Error('Gemini free tier rate limit reached. Please wait ~1 minute and try again, or switch to Apify Google Maps scraper.');
   }
-  throw new Error(`Gemini API search failed: ${lastError || 'All models unavailable'}`);
+  throw new Error(`Gemini search failed after ${MAX_RETRIES} attempts. Please try again or switch to Apify.`);
 }
 
 function mapGeminiResults(results, city) {

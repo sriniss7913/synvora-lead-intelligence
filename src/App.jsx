@@ -61,14 +61,14 @@ export default function App() {
   };
 
   const PROGRESS_STEPS = [
-    { msg: '🔗 Connecting to Apify...', delay: 0 },
-    { msg: '🤖 Launching browser scraper...', delay: 3000 },
-    { msg: '🗺️ Searching Google Maps...', delay: 8000 },
-    { msg: '📍 Crawling business listings...', delay: 18000 },
-    { msg: '📞 Extracting phone numbers & websites...', delay: 32000 },
-    { msg: '🔗 Running email enrichment (Hunter.io)...', delay: 50000 },
-    { msg: '🧠 Scoring and ranking leads...', delay: 70000 },
-    { msg: '✅ Almost done, packaging results...', delay: 90000 },
+    { msg: '🔗 Connecting to Apify (3 scrapers)...' },
+    { msg: '🗺️ Scraper 1: Google Maps — finding local businesses...' },
+    { msg: '📧 Scraper 2: Email Extractor — pulling contact details...' },
+    { msg: '🔍 Scraper 3: Google Search — finding additional companies...' },
+    { msg: '🔀 Merging & deduplicating results from all sources...' },
+    { msg: '🦅 Hunter.io — enriching emails where available...' },
+    { msg: '🧠 Scoring and ranking all leads...' },
+    { msg: '✅ Packaging final results...' },
   ];
 
   const startProgressAnimation = () => {

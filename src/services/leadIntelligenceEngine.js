@@ -71,23 +71,25 @@ export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
  * Execute real lead discovery using ALL 3 Apify scrapers in parallel.
  * Merges and deduplicates results from Google Maps, Email Extractor, and Google Search.
  */
-export async function executeLeadDiscovery(queryText, filters = {}, settings = {}) {
+export async function executeLeadDiscovery(queryText, filters = {}, settings = {}, onProgress = null) {
   const { apifyToken, hunterApiKey, geminiApiKey } = settings;
 
   if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
 
-  const city = filters.city || '';
-  const count = parseInt(filters.leadCount || 10, 10);
+  const city   = filters.city || '';
+  const count  = parseInt(filters.leadCount || 10, 10);
   const coords = filters.coords || null;
 
-  // 1. Run all 3 scrapers in parallel
+  // 1. Run all 3 scrapers — live progress fed back via onProgress
   let rawResults;
   try {
-    rawResults = await scrapeAllSources(queryText, city, count, apifyToken, coords);
+    rawResults = await scrapeAllSources(queryText, city, count, apifyToken, coords, onProgress);
   } catch (err) {
     if (err.message === 'APIFY_TOKEN_MISSING') throw err;
     throw new Error(`SCRAPE_FAILED: ${err.message}`);
   }
+
+  if (!Array.isArray(rawResults)) rawResults = [];
 
   // 2. Filter out companies already in history (dedup against IndexedDB)
   const freshResults = [];

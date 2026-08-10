@@ -60,29 +60,16 @@ export default function App() {
     } catch (e) {}
   };
 
-  const PROGRESS_STEPS = [
-    { msg: '🔗 Connecting to Apify (3 scrapers)...' },
-    { msg: '🗺️ Scraper 1: Google Maps — finding local businesses...' },
-    { msg: '📧 Scraper 2: Email Extractor — pulling contact details...' },
-    { msg: '🔍 Scraper 3: Google Search — finding additional companies...' },
-    { msg: '🔀 Merging & deduplicating results from all sources...' },
-    { msg: '🦅 Hunter.io — enriching emails where available...' },
-    { msg: '🧠 Scoring and ranking all leads...' },
-    { msg: '✅ Packaging final results...' },
-  ];
+  // Add a real status message step to the progress tracker
+  const pushProgress = (msg) => {
+    setProgressSteps(prev => [
+      ...prev.map((s, i) => i === prev.length - 1 ? { ...s, done: true } : s),
+      { msg, done: false }
+    ]);
+  };
 
-  const startProgressAnimation = () => {
-    setProgressSteps([{ msg: PROGRESS_STEPS[0].msg, done: false }]);
-    let stepIdx = 1;
-    progressIntervalRef.current = setInterval(() => {
-      if (stepIdx < PROGRESS_STEPS.length) {
-        setProgressSteps(prev => [
-          ...prev.map((s, i) => i === prev.length - 1 ? { ...s, done: true } : s),
-          { msg: PROGRESS_STEPS[stepIdx].msg, done: false }
-        ]);
-        stepIdx++;
-      }
-    }, 3000);
+  const startProgress = (firstMsg) => {
+    setProgressSteps([{ msg: firstMsg, done: false }]);
   };
 
   const stopProgressAnimation = () => {
@@ -101,32 +88,18 @@ export default function App() {
     }
 
     setIsSearching(true);
-    startProgressAnimation();
+    startProgress('🔗 Initializing scrapers...');
 
     let enrichedFilters = { ...filters };
 
     // Handle Near Me GPS search
     if (filters.city === '📍 Near Me (GPS)') {
       try {
-        setProgressSteps([{ msg: '📡 Getting your GPS location...', done: false }]);
+        pushProgress('📡 Getting your GPS location...');
         const coords = await getCurrentPosition();
         const cityName = await reverseGeocode(coords.lat, coords.lng);
         enrichedFilters = { ...filters, coords, nearMeCity: cityName };
-        setProgressSteps([
-          { msg: `📍 Location detected: ${cityName}`, done: true },
-          { msg: '🔗 Connecting to Apify...', done: false }
-        ]);
-        // Resume normal animation after GPS step
-        let stepIdx = 2;
-        progressIntervalRef.current = setInterval(() => {
-          if (stepIdx < PROGRESS_STEPS.length) {
-            setProgressSteps(prev => [
-              ...prev.map((s, i) => i === prev.length - 1 ? { ...s, done: true } : s),
-              { msg: PROGRESS_STEPS[stepIdx].msg, done: false }
-            ]);
-            stepIdx++;
-          }
-        }, 3000);
+        pushProgress(`📍 Location detected: ${cityName}`);
       } catch (err) {
         stopProgressAnimation();
         setIsSearching(false);
@@ -140,7 +113,10 @@ export default function App() {
     }
 
     try {
-      const newLeads = await executeLeadDiscovery(queryText, enrichedFilters, settings);
+      const newLeads = await executeLeadDiscovery(
+        queryText, enrichedFilters, settings,
+        (msg) => pushProgress(msg)  // ← real live status from polling engine
+      );
 
       if (newLeads.length === 0) {
         triggerToast('No new leads found — all results already in your history.');

@@ -268,7 +268,7 @@ export default function App() {
                   <div style={{
                     height: "100%", borderRadius: 4,
                     background: "linear-gradient(90deg, var(--accent-cyan), var(--accent-indigo))",
-                    width: `${Math.min(95, (progressSteps.filter(s => s.done).length / PROGRESS_STEPS.length) * 100)}%`,
+                    width: `${Math.min(95, (progressSteps.filter(s => s.done).length / 8) * 100)}%`,
                     transition: "width 0.5s ease"
                   }} />
                 </div>

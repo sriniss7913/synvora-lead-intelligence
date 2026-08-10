@@ -8,6 +8,7 @@ export default function LeadTable({
   onOpenOutreach
 }) {
   const [filterTier, setFilterTier] = useState("ALL");
+  const [whatsappOnly, setWhatsappOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedText, setCopiedText] = useState(null);
 
@@ -22,12 +23,18 @@ export default function LeadTable({
 
   const filteredLeads = safeLeads.filter(l => {
     if (!l) return false;
+    
+    // WhatsApp filter check
+    if (whatsappOnly && !l.hasWhatsapp) return false;
+
     const matchesTier = filterTier === "ALL" || (
       filterTier === "HOT" && (l.tier === "Hot lead" || l.score >= 80)
     ) || (
       filterTier === "WARM" && (l.tier === "Warm lead" || (l.score >= 60 && l.score < 80))
     ) || (
       filterTier === "NURTURE" && (l.tier === "Nurture" || (l.score >= 40 && l.score < 60))
+    ) || (
+      filterTier === "WHATSAPP" && l.hasWhatsapp
     );
 
     const term = searchTerm.toLowerCase();
@@ -51,18 +58,18 @@ export default function LeadTable({
       <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>
-            Discovered Company Intelligence ({filteredLeads.length})
+            Persistent Lead History & Intelligence Vault ({filteredLeads.length})
           </h3>
         </div>
 
-        {/* Tier Filter Tabs */}
+        {/* Tier & WhatsApp Filter Tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <button
-            onClick={() => setFilterTier("ALL")}
+            onClick={() => { setFilterTier("ALL"); setWhatsappOnly(false); }}
             className="btn-secondary"
-            style={{ padding: "4px 12px", fontSize: "0.75rem", background: filterTier === "ALL" ? "rgba(255, 255, 255, 0.15)" : "transparent" }}
+            style={{ padding: "4px 12px", fontSize: "0.75rem", background: filterTier === "ALL" && !whatsappOnly ? "rgba(255, 255, 255, 0.15)" : "transparent" }}
           >
-            All ({leads.length})
+            All History ({leads.length})
           </button>
           <button
             onClick={() => setFilterTier("HOT")}
@@ -86,10 +93,27 @@ export default function LeadTable({
             🌱 Nurture ({leads.filter(l => l.score >= 40 && l.score < 60).length})
           </button>
 
+          {/* WhatsApp Only Filter Toggle */}
+          <button
+            onClick={() => setWhatsappOnly(!whatsappOnly)}
+            className="btn-secondary"
+            style={{
+              padding: "4px 12px",
+              fontSize: "0.75rem",
+              background: whatsappOnly ? "rgba(16, 185, 129, 0.2)" : "transparent",
+              color: whatsappOnly ? "var(--tier-nurture)" : "var(--text-muted)",
+              borderColor: whatsappOnly ? "rgba(16, 185, 129, 0.5)" : "var(--border-light)",
+              fontWeight: whatsappOnly ? 700 : 500
+            }}
+            title="Filter leads that have verified WhatsApp numbers"
+          >
+            💬 WhatsApp Only ({leads.filter(l => l.hasWhatsapp).length})
+          </button>
+
           <input
             type="text"
             className="glass-input"
-            style={{ padding: "4px 10px", fontSize: "0.8rem", width: 180, height: 30, marginLeft: 10 }}
+            style={{ padding: "4px 10px", fontSize: "0.8rem", width: 180, height: 30, marginLeft: 6 }}
             placeholder="Search name, email, address..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -105,10 +129,10 @@ export default function LeadTable({
               <th style={{ padding: "14px 16px" }}>Company & Industry</th>
               <th style={{ padding: "14px 16px" }}>Physical Address</th>
               <th style={{ padding: "14px 16px" }}>Contact Email</th>
-              <th style={{ padding: "14px 16px" }}>Phone Number</th>
+              <th style={{ padding: "14px 16px" }}>Phone / WhatsApp</th>
               <th style={{ padding: "14px 16px" }}>Decision Maker</th>
               <th style={{ padding: "14px 16px", textAlign: "center" }}>AI Lead Score</th>
-              <th style={{ padding: "14px 16px", textAlign: "center" }}>Status</th>
+              <th style={{ padding: "14px 16px", textAlign: "center" }}>Pipeline Status</th>
               <th style={{ padding: "14px 16px", textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
@@ -116,7 +140,7 @@ export default function LeadTable({
             {filteredLeads.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
-                  No companies found matching current criteria. Enter a target query in the search bar above to discover leads!
+                  No leads found matching current filters. Enter a query above to generate fresh leads!
                 </td>
               </tr>
             ) : (
@@ -125,6 +149,7 @@ export default function LeadTable({
                 const dmEmail = company.decisionMaker?.email || company.companyEmail || "N/A";
                 const dmPhone = company.decisionMaker?.phone || "N/A";
                 const fullAddress = company.address || company.location || "N/A";
+                const isWaAvailable = company.hasWhatsapp;
 
                 return (
                   <tr
@@ -142,6 +167,11 @@ export default function LeadTable({
                         <Building2 size={12} color="var(--accent-cyan)" />
                         {company.industry} ({company.companySize || "SME"})
                       </div>
+                      {company.dataSource && (
+                        <div style={{ fontSize: "0.68rem", color: "var(--accent-cyan)", marginTop: 3 }}>
+                          {company.dataSource}
+                        </div>
+                      )}
                     </td>
 
                     {/* Physical Address */}

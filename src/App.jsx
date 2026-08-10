@@ -47,16 +47,16 @@ export default function App() {
   const handleSearch = async (queryText, filters) => {
     setIsSearching(true);
     try {
-      const newDiscoveredLeads = await executeLeadDiscovery(queryText, filters, settings);
+      const newDiscoveredLeads = await executeLeadDiscovery(queryText, filters, settings, leads);
       
-      // Combine new leads with existing leads, removing duplicates by companyName
-      const existingNames = new Set(leads.map(l => l.companyName.toLowerCase()));
-      const filteredNew = newDiscoveredLeads.filter(l => !existingNames.has(l.companyName.toLowerCase()));
+      // Combine new leads with existing leads, preserving lead history
+      const existingNames = new Set(leads.map(l => l.companyName.toLowerCase().trim()));
+      const filteredNew = newDiscoveredLeads.filter(l => !existingNames.has(l.companyName.toLowerCase().trim()));
 
       const updatedList = [...filteredNew, ...leads];
       setLeads(updatedList);
       saveLeadsToStorage(updatedList);
-      triggerToast(`Discovered ${newDiscoveredLeads.length} new enriched leads!`);
+      triggerToast(`Discovered ${filteredNew.length} new enriched leads!`);
     } catch (err) {
       console.error("Discovery error:", err);
       triggerToast("Error running lead discovery. Check settings.");

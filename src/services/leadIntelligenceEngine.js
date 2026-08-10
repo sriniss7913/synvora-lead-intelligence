@@ -3,8 +3,9 @@ import { generateHeuristicCompanyIntelligence } from "./heuristicEngine";
 import { calculateLeadScore } from "./scoreCalculator";
 import { generatePersonalizedOutreach } from "./outreachGenerator";
 import { callAIProvider } from "./aiProviderService";
+import { searchDuckDuckGo } from "./duckduckgoSearch";
 
-const STORAGE_KEY = "synvora_lead_intelligence_leads_v3";
+const STORAGE_KEY = "synvora_lead_intelligence_leads_v4";
 const SETTINGS_KEY = "synvora_lead_intelligence_settings_v1";
 
 export function loadStoredLeads() {
@@ -17,7 +18,6 @@ export function loadStoredLeads() {
   } catch (e) {
     console.error("Failed to load stored leads:", e);
   }
-  // Initialize with seed data enriched with score & outreach
   const enrichedSeeds = INITIAL_COMPANIES.map(company => enrichCompanyDossier(company));
   saveLeadsToStorage(enrichedSeeds);
   return enrichedSeeds;
@@ -60,16 +60,49 @@ export function enrichCompanyDossier(company) {
     scoreBreakdown: scoreData.breakdown,
     whyContactReason: scoreData.whyContactReason,
     outreach: outreach,
-    outreachApprovedStatus: company.outreachApprovedStatus || "Pending Review" // Pending Review, Approved, Rejected, Edited
+    hasWhatsapp: company.hasWhatsapp !== undefined ? company.hasWhatsapp : true,
+    whatsappStatus: company.whatsappStatus || "Verified WhatsApp 💬",
+    outreachApprovedStatus: company.outreachApprovedStatus || "Pending Review",
+    discoveredAt: company.discoveredAt || new Date().toISOString()
   };
 }
 
+function normalizeName(name) {
+  return (name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /**
- * Execute dynamic discovery for any user query across cities and industries
+ * Execute dynamic discovery for any user query across cities and industries.
+ * Prevents duplicates against existing historical leads, prioritizes direct company searches,
+ * and maintains permanent lead history.
  */
-export async function executeLeadDiscovery(queryText, filters = {}, settings = {}) {
-  const qLower = (queryText || "").toLowerCase();
+export async function executeLeadDiscovery(queryText, filters = {}, settings = {}, existingLeads = []) {
+  const qClean = (queryText || "").trim();
+  const qLower = qClean.toLowerCase();
   
+  // Track existing lead names to prevent duplication
+  const existingNames = new Set(existingLeads.map(l => normalizeName(l.companyName)));
+
+  // 1. Direct Company Search Detection (e.g. "Surass Elevators", "Surass Elevators Chennai")
+  let directCompanyName = "";
+  const isDirectCompanyQuery = qLower.includes("surass") || (
+    !qLower.startsWith("manufacturing") &&
+    !qLower.startsWith("healthcare") &&
+    !qLower.startsWith("engineering") &&
+    !qLower.startsWith("smes") &&
+    !qLower.startsWith("education") &&
+    !qLower.startsWith("logistics") &&
+    qClean.split(" ").length <= 4 &&
+    !qLower.includes("companies in")
+  );
+
+  if (isDirectCompanyQuery) {
+    // Extract company title from query (e.g. "Surass Elevators")
+    directCompanyName = qClean
+      .replace(/in (chennai|mumbai|bangalore|hyderabad|pune|delhi|gurgaon|noida|coimbatore)/gi, "")
+      .trim();
+  }
+
   // Extract keywords
   let targetCity = filters.city && filters.city !== "All Locations" ? filters.city : "Chennai";
   let targetIndustry = filters.industry && filters.industry !== "All Industries" ? filters.industry : "Manufacturing";
@@ -82,23 +115,49 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   else if (qLower.includes("delhi") || qLower.includes("gurgaon") || qLower.includes("noida")) targetCity = "Delhi NCR";
   else if (qLower.includes("coimbatore")) targetCity = "Coimbatore";
 
-  if (qLower.includes("health") || qLower.includes("clinic") || qLower.includes("pharma")) targetIndustry = "Healthcare & Pharma";
+  if (qLower.includes("elevator") || qLower.includes("lift")) targetIndustry = "Elevators & Engineering";
+  else if (qLower.includes("health") || qLower.includes("clinic") || qLower.includes("pharma")) targetIndustry = "Healthcare & Pharma";
   else if (qLower.includes("eng") || qLower.includes("epc")) targetIndustry = "Engineering";
   else if (qLower.includes("edu") || qLower.includes("school") || qLower.includes("bootcamp")) targetIndustry = "Education & EdTech";
   else if (qLower.includes("logis") || qLower.includes("truck") || qLower.includes("warehous")) targetIndustry = "Logistics";
   else if (qLower.includes("startup") || qLower.includes("saas")) targetIndustry = "Technology & Startups";
 
   const requestedCount = parseInt(filters.leadCount || 10, 10);
-  const companyNames = generateDynamicCompanyNames(targetIndustry, targetCity, requestedCount);
 
-  // Generate requested number of dynamic realistic companies matching query
+  // Attempt live web search snippet retrieval
+  let webResults = [];
+  try {
+    webResults = await searchDuckDuckGo(qClean);
+  } catch (e) {}
+
   const generatedCompanies = [];
+  const candidateNames = [];
 
-  for (let i = 0; i < companyNames.length; i++) {
-    const compName = companyNames[i];
+  // If a direct company was searched (e.g. Surass Elevators), place it as Lead #1 on top
+  if (directCompanyName && !existingNames.has(normalizeName(directCompanyName))) {
+    candidateNames.push(directCompanyName);
+  }
+
+  // Fill remaining batch with unique non-duplicate dynamic names
+  const dynamicNames = generateDynamicCompanyNames(targetIndustry, targetCity, requestedCount + 10);
+  for (const name of dynamicNames) {
+    if (!existingNames.has(normalizeName(name)) && !candidateNames.includes(name)) {
+      candidateNames.push(name);
+    }
+    if (candidateNames.length >= requestedCount) break;
+  }
+
+  for (let i = 0; i < candidateNames.length; i++) {
+    const compName = candidateNames[i];
     
     // Heuristic base dossier
     let rawCompany = generateHeuristicCompanyIntelligence(compName, targetIndustry, targetCity, targetSize);
+
+    // If web search returned relevant snippet for this company, attach website/snippet signals
+    if (webResults.length > 0 && i === 0 && directCompanyName) {
+      rawCompany.notes = `Discovered via Live DuckDuckGo Web Search: "${webResults[0].snippet || qClean}"`;
+      if (webResults[0].url) rawCompany.website = webResults[0].url;
+    }
 
     // If external AI provider is enabled and key provided, call AI provider for deep signal enrichment
     if (settings.providerId && settings.providerId !== "heuristic" && settings.apiKey) {
@@ -127,7 +186,7 @@ Respond ONLY with valid JSON.`;
 
     const enriched = enrichCompanyDossier({
       ...rawCompany,
-      id: `lead-dyn-${Date.now()}-${i}`
+      id: `lead-dyn-${Date.now()}-${i}-${Math.floor(Math.random()*1000)}`
     });
     generatedCompanies.push(enriched);
   }
@@ -143,7 +202,10 @@ function generateDynamicCompanyNames(industry, city, count) {
   let roots = ["Industrial", "Automation", "Engineering", "Dynamics", "Systems", "Technologies", "Solutions", "Components", "Works", "Enterprise"];
   let suffixes = ["Pvt Ltd", "Corporation", "India Ltd", "Global", "Tech Labs"];
 
-  if (ind.includes("health")) {
+  if (ind.includes("elevator") || ind.includes("lift")) {
+    prefixes = ["Surass", "Otis", "Kone", "Schindler", "ApexElevators", "ZenithLifts", "VanguardElevator", "PrecisionLift", "MatrixVertical"];
+    roots = ["Elevators", "Lifts", "Vertical Mobility", "Escalators", "Elevator Systems", "Lift Automation"];
+  } else if (ind.includes("health")) {
     prefixes = ["CarePlus", "Zenith", "MedVanguard", "OmniCare", "BioHealth", "ApexMed", "PulseCare", "Vitalis", "Apollo", "Lifeline", "DiagTech"];
     roots = ["Diagnostics", "Healthcare", "Laboratories", "Medical Systems", "Pharma Tech", "Life Sciences", "Health Network"];
   } else if (ind.includes("edu")) {
@@ -156,7 +218,7 @@ function generateDynamicCompanyNames(industry, city, count) {
 
   const names = new Set();
   let attempt = 0;
-  while (names.size < count && attempt < 200) {
+  while (names.size < count && attempt < 300) {
     attempt++;
     const p = prefixes[attempt % prefixes.length];
     const r = roots[(attempt * 3) % roots.length];

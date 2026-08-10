@@ -1,17 +1,16 @@
 import React, { useState } from "react";
-import { X, Sliders, Key, Cpu, ShieldCheck, Check, Info } from "lucide-react";
-import { AI_PROVIDERS } from "../services/aiProviderService";
+import { X, Sliders, Key, ShieldCheck, Check, Info, ExternalLink, AlertTriangle } from "lucide-react";
 
 export default function SettingsModal({ settings, onClose, onSaveSettings }) {
-  const [selectedProvider, setSelectedProvider] = useState(settings.providerId || "heuristic");
-  const [apiKey, setApiKey] = useState(settings.apiKey || "");
+  const [apifyToken, setApifyToken] = useState(settings.apifyToken || "");
+  const [hunterApiKey, setHunterApiKey] = useState(settings.hunterApiKey || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = (e) => {
     e.preventDefault();
     onSaveSettings({
-      providerId: selectedProvider,
-      apiKey: apiKey.trim()
+      apifyToken: apifyToken.trim(),
+      hunterApiKey: hunterApiKey.trim(),
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -20,16 +19,17 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
     }, 800);
   };
 
-  const currentProviderObj = AI_PROVIDERS[selectedProvider.toUpperCase()] || AI_PROVIDERS.HEURISTIC;
+  const hasApify = apifyToken.trim().length > 10;
+  const hasHunter = hunterApiKey.trim().length > 10;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="glass-panel modal-content"
-        style={{ width: 580, maxWidth: "92%", padding: 28, position: "relative" }}
+        style={{ width: 600, maxWidth: "95%", padding: 28, position: "relative" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
+        {/* Close */}
         <button
           onClick={onClose}
           style={{ position: "absolute", right: 20, top: 20, background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
@@ -37,106 +37,127 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
           <X size={20} />
         </button>
 
-        {/* Modal Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(168, 85, 247, 0.15)", border: "1px solid rgba(168, 85, 247, 0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Sliders size={22} color="var(--accent-purple)" />
           </div>
           <div>
-            <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff" }}>
-              AI Intelligence Provider Settings
-            </h2>
-            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-              Choose between built-in zero-key heuristic mode or external AI APIs
-            </div>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff" }}>API Configuration</h2>
+            <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Connect real data sources for genuine lead intelligence</div>
           </div>
         </div>
 
         <form onSubmit={handleSave}>
-          
-          {/* Provider Selection */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: "0.82rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <Cpu size={15} color="var(--accent-cyan)" /> Select AI Provider Engine
-            </label>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {Object.values(AI_PROVIDERS).map((provider) => (
-                <div
-                  key={provider.id}
-                  onClick={() => setSelectedProvider(provider.id)}
-                  style={{
-                    background: selectedProvider === provider.id ? "rgba(6, 182, 212, 0.12)" : "rgba(30, 41, 59, 0.5)",
-                    border: `1px solid ${selectedProvider === provider.id ? 'var(--accent-cyan)' : 'var(--border-light)'}`,
-                    borderRadius: 8,
-                    padding: 12,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, color: selectedProvider === provider.id ? "#fff" : "var(--text-main)", fontSize: "0.9rem" }}>
-                      {provider.name}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-                      {provider.requiresKey ? "Requires API Key (Stored in Browser LocalStorage)" : "No API key required • Zero Cost"}
-                    </div>
-                  </div>
 
-                  {selectedProvider === provider.id && (
-                    <span style={{ color: "var(--accent-cyan)", display: "flex", alignItems: "center" }}>
-                      <Check size={18} />
-                    </span>
-                  )}
+          {/* Apify Section */}
+          <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasApify ? 'rgba(16,185,129,0.5)' : 'var(--border-light)'}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: "1.3rem" }}>🗺️</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                  Apify — Google Maps Scraper
+                  {hasApify && <span style={{ marginLeft: 8, color: "#10b981", fontSize: "0.72rem" }}>✅ Connected</span>}
                 </div>
-              ))}
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Real Indian businesses from Google Maps • Free tier: 5,000 results/month
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.85rem", marginBottom: 8 }}
+              placeholder="apify_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              value={apifyToken}
+              onChange={(e) => setApifyToken(e.target.value)}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <ShieldCheck size={11} color="var(--tier-nurture)" /> Stored locally in your browser only
+              </div>
+              <a
+                href="https://console.apify.com/account/integrations"
+                target="_blank" rel="noreferrer"
+                style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+              >
+                Get free Apify token <ExternalLink size={10} />
+              </a>
+            </div>
+
+            {/* Setup Guide */}
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ fontSize: "0.75rem", color: "var(--accent-cyan)", cursor: "pointer" }}>📖 Setup guide (2 minutes)</summary>
+              <ol style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, paddingLeft: 16, lineHeight: 1.7 }}>
+                <li>Go to <strong>apify.com</strong> → Sign up free (Google login works)</li>
+                <li>Go to <strong>Account → Integrations → API Tokens</strong></li>
+                <li>Click <strong>"Create new token"</strong> → Name it "Synvora"</li>
+                <li>Copy the token and paste above</li>
+                <li>Free tier gives you $5/month credit ≈ 5,000+ business searches</li>
+              </ol>
+            </details>
+          </div>
+
+          {/* Hunter.io Section */}
+          <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasHunter ? 'rgba(99,102,241,0.5)' : 'var(--border-light)'}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: "1.3rem" }}>🦅</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                  Hunter.io — Email Discovery
+                  {hasHunter && <span style={{ marginLeft: 8, color: "#6366f1", fontSize: "0.72rem" }}>✅ Connected</span>}
+                  <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "var(--text-dim)", fontWeight: 400 }}>(Optional)</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Find real email addresses for discovered companies • Free: 25/month
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.85rem", marginBottom: 8 }}
+              placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              value={hunterApiKey}
+              onChange={(e) => setHunterApiKey(e.target.value)}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <ShieldCheck size={11} color="var(--tier-nurture)" /> Stored locally in your browser only
+              </div>
+              <a
+                href="https://hunter.io/api-keys"
+                target="_blank" rel="noreferrer"
+                style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+              >
+                Get free Hunter.io key <ExternalLink size={10} />
+              </a>
             </div>
           </div>
 
-          {/* API Key Input (if provider requires key) */}
-          {currentProviderObj.requiresKey && (
-            <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.8)", padding: 14, borderRadius: 8, border: "1px solid var(--border-light)" }}>
-              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Key size={14} color="var(--tier-warm)" /> {currentProviderObj.name} API Key
-              </label>
-              <input
-                type="password"
-                className="glass-input"
-                style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}
-                placeholder={`Paste your ${currentProviderObj.name} API key here...`}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-                <ShieldCheck size={12} color="var(--tier-nurture)" /> Keys are saved locally in your browser's LocalStorage and never sent to external servers except direct AI endpoints.
-              </div>
+          {/* Status Banner */}
+          {!hasApify && (
+            <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#fbbf24", marginBottom: 20, display: "flex", gap: 8 }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span><strong>Apify token required</strong> — without it, no real lead data can be fetched. The app will show an error prompting you to add your token.</span>
             </div>
           )}
 
-          {/* Info note */}
-          <div style={{ background: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.3)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 24, display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <Info size={16} color="var(--accent-indigo)" style={{ flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <strong>Pro-tip:</strong> You can host this app on <strong>Vercel</strong> or Netlify with zero backend setup. The Heuristic Engine runs 100% client-side without any key requirements!
+          {hasApify && (
+            <div style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#6ee7b7", marginBottom: 20 }}>
+              ✅ <strong>Ready for real leads.</strong> {hasHunter ? "Both Apify + Hunter.io connected." : "Apify connected. Add Hunter.io for email discovery."}
             </div>
-          </div>
+          )}
 
-          {/* Save Button */}
+          {/* Buttons */}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
-            </button>
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">
-              {saveSuccess ? (
-                <>
-                  <Check size={16} /> Settings Saved!
-                </>
-              ) : (
-                "Save Configuration"
-              )}
+              {saveSuccess ? <><Check size={16} /> Saved!</> : "Save & Connect"}
             </button>
           </div>
 

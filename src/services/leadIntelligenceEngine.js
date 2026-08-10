@@ -79,11 +79,16 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   const city   = filters.city || '';
   const count  = parseInt(filters.leadCount || 10, 10);
   const coords = filters.coords || null;
+  const useEmails = !!filters.useEmails;
+  const useSearchBackup = !!filters.useSearchBackup;
 
-  // 1. Run all 3 scrapers — live progress fed back via onProgress
+  // 1. Run scrapers with conditional settings — live progress fed back via onProgress
   let rawResults;
   try {
-    rawResults = await scrapeAllSources(queryText, city, count, apifyToken, coords, onProgress);
+    rawResults = await scrapeAllSources(
+      queryText, city, count, apifyToken, coords, onProgress,
+      useEmails, useSearchBackup
+    );
   } catch (err) {
     if (err.message === 'APIFY_TOKEN_MISSING') throw err;
     throw new Error(`SCRAPE_FAILED: ${err.message}`);

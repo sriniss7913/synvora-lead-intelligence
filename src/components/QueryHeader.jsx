@@ -9,6 +9,8 @@ export default function QueryHeader({ onSearch, isSearching }) {
   const [selectedSize, setSelectedSize] = useState("Any Size");
   const [leadCount, setLeadCount] = useState("10");
   const [showFilters, setShowFilters] = useState(false);
+  const [useEmails, setUseEmails] = useState(false);
+  const [useSearchBackup, setUseSearchBackup] = useState(false);
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
@@ -17,7 +19,9 @@ export default function QueryHeader({ onSearch, isSearching }) {
       city: selectedCity,
       industry: selectedIndustry,
       companySize: selectedSize,
-      leadCount: leadCount
+      leadCount: leadCount,
+      useEmails: useEmails,
+      useSearchBackup: useSearchBackup
     });
   };
 
@@ -29,7 +33,9 @@ export default function QueryHeader({ onSearch, isSearching }) {
       city: preset.location.split(",")[0],
       industry: preset.industry,
       companySize: preset.size,
-      leadCount: leadCount
+      leadCount: leadCount,
+      useEmails: useEmails,
+      useSearchBackup: useSearchBackup
     });
   };
 
@@ -150,6 +156,51 @@ export default function QueryHeader({ onSearch, isSearching }) {
               <option value="25">25 Leads</option>
               <option value="50">50 Leads</option>
             </select>
+          </div>
+        </div>
+      )}
+
+      {/* Scraping Depth & Tool Selectors */}
+      {showFilters && (
+        <div style={{
+          marginTop: 16, padding: "14px 18px", borderRadius: 10,
+          background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-light)",
+          display: "flex", gap: 24, flexWrap: "wrap"
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--accent-cyan)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              🛠️ Discovery Pipeline Configuration
+            </span>
+            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+              Customize active scraping sources. Maps is always active. Turn on optional scrapers for deeper intelligence.
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "#fff", cursor: "pointer" }}>
+              <input type="checkbox" checked={true} disabled style={{ accentColor: "var(--accent-cyan)" }} />
+              <span>🗺️ Google Maps Scraper <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>(Fast / Required)</span></span>
+            </label>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "#fff", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={useEmails}
+                onChange={(e) => setUseEmails(e.target.checked)}
+                style={{ accentColor: "var(--accent-cyan)", cursor: "pointer" }}
+              />
+              <span>📧 Website Email Extractor <span style={{ fontSize: "0.7rem", color: "#a855f7" }}>(Slower but enriched)</span></span>
+            </label>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "#fff", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={useSearchBackup}
+                onChange={(e) => setUseSearchBackup(e.target.checked)}
+                style={{ accentColor: "var(--accent-cyan)", cursor: "pointer" }}
+              />
+              <span>🔍 Google Search Backup <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>(Fallback if Maps runs low)</span></span>
+            </label>
           </div>
         </div>
       )}

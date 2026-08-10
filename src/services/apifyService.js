@@ -84,9 +84,8 @@ async function pollRunUntilDone(runId, token, timeoutMs = 180000, onPoll = null)
     if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
       throw new Error(`Run ${status}`);
     }
-    // RUNNING or READY → keep polling
   }
-  throw new Error('CLIENT_TIMEOUT'); // we gave up waiting
+  throw new Error('CLIENT_TIMEOUT');
 }
 
 /** Fetch items from a completed dataset */
@@ -97,13 +96,6 @@ async function fetchDatasetItems(datasetId, token, limit = 50) {
   if (!res.ok) return [];
   const data = await res.json();
   return Array.isArray(data) ? data : (data?.items || []);
-}
-
-/** Run one actor end-to-end: start → poll → fetch items */
-async function runActorFull(actorId, inputBody, token, limitItems = 20, onPoll = null) {
-  const run = await startRun(actorId, inputBody, token);
-  const completed = await pollRunUntilDone(run.id, token, 180000, onPoll);
-  return fetchDatasetItems(completed.defaultDatasetId, token, limitItems);
 }
 
 // ─── Actor-Specific Input Builders & Result Mappers ─────────────────────────
@@ -274,75 +266,85 @@ function mergeAllResults(mapsResults, emailResults, searchResults) {
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 /**
- * Run all 3 Apify actors using async start + polling (no HTTP timeouts).
- * Google Maps is required. Email extractor and Search are optional — their
- * failures are silently caught and we return partial results.
- *
- * @param {string} query
- * @param {string} city
- * @param {number} count
- * @param {string} apifyToken
- * @param {Object|null} coords  - { lat, lng } for GPS Near Me search
- * @param {Function|null} onProgress - callback(message: string) for live updates
+ * Run selected Apify actors using async start + polling (no HTTP timeouts).
+ * Google Maps is ALWAYS run as the default listing provider.
+ * Optional website email extractor runs in parallel if requested.
+ * Optional search backup runs only if Maps results fall short of the requested count.
  */
-export async function scrapeAllSources(query, city, count, apifyToken, coords = null, onProgress = null) {
+export async function scrapeAllSources(
+  query, city, count, apifyToken, coords = null, onProgress = null,
+  useEmails = false, useSearchBackup = false
+) {
   if (!apifyToken) throw new Error('APIFY_TOKEN_MISSING');
 
   const notify = msg => { if (onProgress) onProgress(msg); };
 
-  // ── Step 1: Start all 3 runs simultaneously ──
-  notify('🚀 Starting all 3 scrapers simultaneously...');
+  // ── Step 1: Start Maps (and Email Extractor if selected) ──
+  const mapsInput = buildMapsInput(query, city, count, coords);
+  let mapsRun = null, emailRun = null;
 
-  const mapsInput   = buildMapsInput(query, city, count, coords);
-  const emailInput  = buildEmailExtractorInput(query, city, count, coords);
-  const searchInput = buildSearchInput(query, city, count);
-
-  let mapsRun = null, emailRun = null, searchRun = null;
-
-  // Maps is required — throw if it fails to start
+  notify('🚀 Starting Google Maps scraper...');
   mapsRun = await startRun(ACTORS.MAPS, mapsInput, apifyToken);
-  notify('🗺️  Google Maps scraper started...');
 
-  // Optional actors — non-fatal if they fail to start
-  try { emailRun = await startRun(ACTORS.MAPS_EMAIL, emailInput, apifyToken); notify('📧 Email extractor started...'); }
-  catch (e) { console.warn('Email extractor start failed:', e.message); }
+  if (useEmails) {
+    notify('📧 Starting website email extractor (in parallel)...');
+    try {
+      const emailInput = buildEmailExtractorInput(query, city, count, coords);
+      emailRun = await startRun(ACTORS.MAPS_EMAIL, emailInput, apifyToken);
+    } catch (e) {
+      console.warn('Email extractor start failed:', e.message);
+    }
+  }
 
-  try { searchRun = await startRun(ACTORS.SEARCH, searchInput, apifyToken); notify('🔍 Google Search scraper started...'); }
-  catch (e) { console.warn('Search scraper start failed:', e.message); }
+  // ── Step 2: Poll primary scraper runs ──
+  notify('⏳ Scraping in progress — polling Google Maps...');
 
-  // ── Step 2: Poll all running actors in parallel ──
-  notify('⏳ Scraping in progress — polling for results...');
-
-  const mapsStatus   = { done: false, label: 'Google Maps' };
-  const emailStatus  = { done: false, label: 'Email Extractor' };
-  const searchStatus = { done: false, label: 'Google Search' };
+  const mapsStatus  = { done: false, label: 'Google Maps' };
+  const emailStatus = { done: false, label: 'Email Extractor' };
 
   const makePoller = (run, status) => {
     if (!run) return Promise.resolve([]);
-    return pollRunUntilDone(run.id, apifyToken, 180000, (s) => {
-      if (s === 'SUCCEEDED' && !status.done) {
+    return pollRunUntilDone(run.id, apifyToken, 180000, () => {
+      if (!status.done) {
         status.done = true;
-        const doneSources = [mapsStatus, emailStatus, searchStatus].filter(s => s.done).map(s => s.label);
-        notify(`✅ ${status.label} done! (${doneSources.join(', ')} complete)`);
+        notify(`✅ ${status.label} complete!`);
       }
     }).then(completed => fetchDatasetItems(completed.defaultDatasetId, apifyToken, count + 10))
       .catch(err => {
-        console.warn(`${status.label} polling failed:`, err.message);
+        console.warn(`${status.label} failed:`, err.message);
         return [];
       });
   };
 
-  const [mapsRaw, emailRaw, searchRaw] = await Promise.all([
+  const [mapsRaw, emailRaw] = await Promise.all([
     makePoller(mapsRun, mapsStatus),
-    makePoller(emailRun, emailStatus),
-    makePoller(searchRun, searchStatus)
+    makePoller(emailRun, emailStatus)
   ]);
 
-  notify('🔀 Merging and deduplicating results...');
+  const mapsResults  = mapMapsResults(mapsRaw, city);
+  const emailResults = mapEmailResults(emailRaw, city);
 
-  const mapsResults   = mapMapsResults(mapsRaw, city);
-  const emailResults  = mapEmailResults(emailRaw, city);
-  const searchResults = mapSearchResults(searchRaw, city);
+  let mergedLeads = mergeAllResults(mapsResults, emailResults, []);
+  notify(`🔀 Merged primary sources. Found ${mergedLeads.length} unique businesses.`);
+
+  // ── Step 3: Conditional Web Search fallback ──
+  let searchResults = [];
+  if (useSearchBackup && mergedLeads.length < count) {
+    const deficit = count - mergedLeads.length;
+    notify(`🔍 Maps found fewer leads than requested (${mergedLeads.length}/${count}). Activating Google Search Backup to find ${deficit} more...`);
+    try {
+      const searchInput = buildSearchInput(query, city, count);
+      const searchRun = await startRun(ACTORS.SEARCH, searchInput, apifyToken);
+      const searchRaw = await pollRunUntilDone(searchRun.id, apifyToken, 120000, () => {});
+      const searchItems = await fetchDatasetItems(searchRaw.defaultDatasetId, apifyToken, deficit + 5);
+      searchResults = mapSearchResults(searchItems, city);
+      notify(`✅ Google Search Backup finished. Merging additional listings.`);
+    } catch (e) {
+      console.warn('Search backup failed:', e.message);
+    }
+  } else if (useSearchBackup) {
+    notify('✅ Maps scraper returned enough results. Skipping Google Search backup to save time & API quota.');
+  }
 
   return mergeAllResults(mapsResults, emailResults, searchResults);
 }

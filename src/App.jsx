@@ -81,7 +81,14 @@ export default function App() {
   };
 
   const handleSearch = async (queryText, filters) => {
-    if (!settings.apifyToken) {
+    const targetProvider = filters.provider || (settings.apifyToken ? 'apify' : 'gemini');
+
+    if (targetProvider === 'gemini' && !settings.geminiApiKey) {
+      triggerToast("⚠️ Please add your Gemini API key in Settings first!", true);
+      setShowSettingsModal(true);
+      return;
+    }
+    if (targetProvider === 'apify' && !settings.apifyToken) {
       triggerToast("⚠️ Please add your Apify API token in Settings first!", true);
       setShowSettingsModal(true);
       return;

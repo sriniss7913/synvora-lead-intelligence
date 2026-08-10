@@ -6,6 +6,7 @@ import {
   Phone, Mail, Globe, MapPin, MessageSquare, ExternalLink,
   Check, RefreshCw, Trash2, Clock, Star, Filter, Download, Search
 } from "lucide-react";
+import { buildWhatsAppLink } from "../utils/whatsappHelper";
 
 const OUTREACH_STATUSES = [
   { value: "New", color: "#94a3b8", emoji: "🆕" },
@@ -202,16 +203,22 @@ export default function HistoryPanel() {
                       <span>{lead.address || lead.location || "N/A"}</span>
                     </div>
                     {lead.phone && (
-                      <div style={{ fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+                      <div style={{ fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                         <Phone size={12} color="var(--tier-nurture)" />
                         <a href={`tel:${lead.phone}`} style={{ color: "var(--text-main)", textDecoration: "none" }}>{lead.phone}</a>
-                        {lead.phone && !lead.phone.startsWith('0') && (
+                        {buildWhatsAppLink(lead.phone, lead.outreach?.whatsapp) && (
                           <a
-                            href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                            href={buildWhatsAppLink(lead.phone, lead.outreach?.whatsapp)}
                             target="_blank" rel="noreferrer"
-                            style={{ color: "var(--tier-nurture)", fontSize: "0.7rem" }}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)",
+                              color: "#10b981", padding: "2px 8px", borderRadius: 12,
+                              fontSize: "0.72rem", fontWeight: 700, textDecoration: "none"
+                            }}
+                            title="1-Click Launch WhatsApp with Pre-filled Message"
                           >
-                            💬 WhatsApp
+                            💬 Send WhatsApp
                           </a>
                         )}
                       </div>

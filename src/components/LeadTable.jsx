@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Eye, Mail, Award, MapPin, Building2, User, Phone, CheckCircle2, AlertCircle, Copy, Check } from "lucide-react";
+import { buildWhatsAppLink } from "../utils/whatsappHelper";
 
 export default function LeadTable({
   leads = [],
@@ -205,24 +206,36 @@ export default function LeadTable({
 
                     {/* Phone Number */}
                     <td style={{ padding: "14px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <Phone size={13} color="var(--tier-nurture)" />
-                        <a
-                          href={`https://wa.me/${dmPhone.replace(/[^0-9]/g, "").length === 10 ? '91' + dmPhone.replace(/[^0-9]/g, "") : dmPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(company.outreach?.whatsapp || 'Hello!')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: "var(--tier-nurture)", fontSize: "0.82rem", textDecoration: "none", fontWeight: 600 }}
-                          title="1-Click Send WhatsApp Message"
-                        >
-                          {dmPhone} 💬
-                        </a>
-                        <button
-                          onClick={() => handleCopyText(dmPhone, `phone-${company.id}`)}
-                          style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 2 }}
-                          title="Copy Phone"
-                        >
-                          {copiedText === `phone-${company.id}` ? <Check size={12} color="var(--tier-nurture)" /> : <Copy size={12} />}
-                        </button>
+                        <span style={{ fontSize: "0.82rem", color: "#fff" }}>{dmPhone || "N/A"}</span>
+
+                        {buildWhatsAppLink(dmPhone, company.outreach?.whatsapp) && (
+                          <a
+                            href={buildWhatsAppLink(dmPhone, company.outreach?.whatsapp)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 3,
+                              background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)",
+                              color: "#10b981", padding: "2px 8px", borderRadius: 12,
+                              fontSize: "0.72rem", textDecoration: "none", fontWeight: 700
+                            }}
+                            title="1-Click Launch WhatsApp with Pre-filled Message"
+                          >
+                            💬 WhatsApp
+                          </a>
+                        )}
+
+                        {dmPhone && (
+                          <button
+                            onClick={() => handleCopyText(dmPhone, `phone-${company.id}`)}
+                            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 2 }}
+                            title="Copy Phone"
+                          >
+                            {copiedText === `phone-${company.id}` ? <Check size={12} color="var(--tier-nurture)" /> : <Copy size={12} />}
+                          </button>
+                        )}
                       </div>
                     </td>
 

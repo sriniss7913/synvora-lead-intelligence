@@ -9,6 +9,7 @@ export default function QueryHeader({ onSearch, isSearching }) {
   const [selectedSize, setSelectedSize] = useState("Any Size");
   const [leadCount, setLeadCount] = useState("10");
   const [showFilters, setShowFilters] = useState(false);
+  const [provider, setProvider] = useState("gemini");
   const [useEmails, setUseEmails] = useState(false);
   const [useSearchBackup, setUseSearchBackup] = useState(false);
 
@@ -20,6 +21,7 @@ export default function QueryHeader({ onSearch, isSearching }) {
       industry: selectedIndustry,
       companySize: selectedSize,
       leadCount: leadCount,
+      provider: provider,
       useEmails: useEmails,
       useSearchBackup: useSearchBackup
     });
@@ -34,6 +36,7 @@ export default function QueryHeader({ onSearch, isSearching }) {
       industry: preset.industry,
       companySize: preset.size,
       leadCount: leadCount,
+      provider: provider,
       useEmails: useEmails,
       useSearchBackup: useSearchBackup
     });
@@ -50,6 +53,41 @@ export default function QueryHeader({ onSearch, isSearching }) {
         <p style={{ fontSize: "0.88rem", color: "var(--text-muted)", marginTop: 4 }}>
           Enter any natural business query (e.g. <i>"SMEs in Hyderabad with 10-50 employees"</i>) across any city, region, or industry.
         </p>
+
+        {/* Data Provider Switcher Bar */}
+        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Scraper Engine:
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setProvider("gemini")}
+            style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
+              cursor: "pointer", border: "none", transition: "all 0.2s ease",
+              background: provider === "gemini" ? "linear-gradient(135deg, #a855f7, #06b6d4)" : "rgba(255,255,255,0.05)",
+              color: "#fff",
+              boxShadow: provider === "gemini" ? "0 0 12px rgba(168,85,247,0.4)" : "none"
+            }}
+          >
+            ✨ Gemini AI Live Search <span style={{ opacity: 0.8, fontSize: "0.7rem", fontWeight: 400 }}>(3-5 sec, Free)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProvider("apify")}
+            style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
+              cursor: "pointer", border: "none", transition: "all 0.2s ease",
+              background: provider === "apify" ? "linear-gradient(135deg, #06b6d4, #3b82f6)" : "rgba(255,255,255,0.05)",
+              color: "#fff",
+              boxShadow: provider === "apify" ? "0 0 12px rgba(6,182,212,0.4)" : "none"
+            }}
+          >
+            📍 Apify Google Maps Scraper <span style={{ opacity: 0.8, fontSize: "0.7rem", fontWeight: 400 }}>(Deep Scrape)</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Search Bar */}

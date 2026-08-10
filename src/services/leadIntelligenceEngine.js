@@ -1,4 +1,5 @@
 import { scrapeAllSources } from "./apifyService";
+import { searchLeadsWithGemini } from "./geminiSearchService";
 import { findCompanyEmail } from "./hunterService";
 import { calculateLeadScore } from "./scoreCalculator";
 import { generatePersonalizedOutreach } from "./outreachGenerator";
@@ -73,8 +74,7 @@ export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
  */
 export async function executeLeadDiscovery(queryText, filters = {}, settings = {}, onProgress = null) {
   const { apifyToken, hunterApiKey, geminiApiKey } = settings;
-
-  if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
+  const provider = filters.provider || (settings.apifyToken ? 'apify' : 'gemini');
 
   const city   = filters.city || '';
   const count  = parseInt(filters.leadCount || 10, 10);
@@ -82,16 +82,28 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   const useEmails = !!filters.useEmails;
   const useSearchBackup = !!filters.useSearchBackup;
 
-  // 1. Run scrapers with conditional settings — live progress fed back via onProgress
-  let rawResults;
-  try {
-    rawResults = await scrapeAllSources(
-      queryText, city, count, apifyToken, coords, onProgress,
-      useEmails, useSearchBackup
-    );
-  } catch (err) {
-    if (err.message === 'APIFY_TOKEN_MISSING') throw err;
-    throw new Error(`SCRAPE_FAILED: ${err.message}`);
+  let rawResults = [];
+
+  if (provider === 'gemini') {
+    if (!geminiApiKey) throw new Error("GEMINI_TOKEN_MISSING");
+    if (onProgress) onProgress("✨ Searching live Google web listings via Gemini AI...");
+    try {
+      rawResults = await searchLeadsWithGemini(queryText, city, count, geminiApiKey);
+    } catch (err) {
+      if (err.message === 'GEMINI_TOKEN_MISSING') throw err;
+      throw new Error(`SCRAPE_FAILED: ${err.message}`);
+    }
+  } else {
+    if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
+    try {
+      rawResults = await scrapeAllSources(
+        queryText, city, count, apifyToken, coords, onProgress,
+        useEmails, useSearchBackup
+      );
+    } catch (err) {
+      if (err.message === 'APIFY_TOKEN_MISSING') throw err;
+      throw new Error(`SCRAPE_FAILED: ${err.message}`);
+    }
   }
 
   if (!Array.isArray(rawResults)) rawResults = [];

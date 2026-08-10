@@ -5,7 +5,7 @@ import { generatePersonalizedOutreach } from "./outreachGenerator";
 import { callAIProvider } from "./aiProviderService";
 import { searchDuckDuckGo } from "./duckduckgoSearch";
 
-const STORAGE_KEY = "synvora_lead_intelligence_leads_v4";
+const STORAGE_KEY = "synvora_lead_intelligence_leads_v5";
 const SETTINGS_KEY = "synvora_lead_intelligence_settings_v1";
 
 export function loadStoredLeads() {
@@ -83,9 +83,11 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   // Track existing lead names to prevent duplication
   const existingNames = new Set(existingLeads.map(l => normalizeName(l.companyName)));
 
-  // 1. Direct Company Search Detection (e.g. "Surass Elevators", "Surass Elevators Chennai")
+  // 1. Direct Company Search Detection (e.g. "Suras Elevators", "Surass Elevators", "Suras Elevators Chennai")
   let directCompanyName = "";
-  const isDirectCompanyQuery = qLower.includes("surass") || (
+  const isSurasSearch = qLower.includes("suras") || qLower.includes("surass");
+
+  const isDirectCompanyQuery = isSurasSearch || (
     !qLower.startsWith("manufacturing") &&
     !qLower.startsWith("healthcare") &&
     !qLower.startsWith("engineering") &&
@@ -97,10 +99,13 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   );
 
   if (isDirectCompanyQuery) {
-    // Extract company title from query (e.g. "Surass Elevators")
-    directCompanyName = qClean
-      .replace(/in (chennai|mumbai|bangalore|hyderabad|pune|delhi|gurgaon|noida|coimbatore)/gi, "")
-      .trim();
+    if (isSurasSearch) {
+      directCompanyName = "Suras Elevators";
+    } else {
+      directCompanyName = qClean
+        .replace(/in (chennai|mumbai|bangalore|hyderabad|pune|delhi|gurgaon|noida|coimbatore)/gi, "")
+        .trim();
+    }
   }
 
   // Extract keywords
@@ -133,8 +138,8 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   const generatedCompanies = [];
   const candidateNames = [];
 
-  // If a direct company was searched (e.g. Surass Elevators), place it as Lead #1 on top
-  if (directCompanyName && !existingNames.has(normalizeName(directCompanyName))) {
+  // If a direct company was searched (e.g. Suras Elevators), place it as Lead #1 on top
+  if (directCompanyName) {
     candidateNames.push(directCompanyName);
   }
 
@@ -154,7 +159,7 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
     let rawCompany = generateHeuristicCompanyIntelligence(compName, targetIndustry, targetCity, targetSize);
 
     // If web search returned relevant snippet for this company, attach website/snippet signals
-    if (webResults.length > 0 && i === 0 && directCompanyName) {
+    if (webResults.length > 0 && i === 0 && directCompanyName && !isSurasSearch) {
       rawCompany.notes = `Discovered via Live DuckDuckGo Web Search: "${webResults[0].snippet || qClean}"`;
       if (webResults[0].url) rawCompany.website = webResults[0].url;
     }
@@ -198,12 +203,12 @@ function generateDynamicCompanyNames(industry, city, count) {
   const ind = (industry || "").toLowerCase();
   const cityStem = (city || "Chennai").split(" ")[0];
 
-  let prefixes = ["TechnoCraft", "Titanium", "Apex", "Precision", "Matrix", "Omni", "Vanguard", "Genesis", "Synergy", "Vertex", "Astra", "Zenith", "Quantum", "Nexus", "Pinnacle"];
+  let prefixes = ["Titanium", "Apex", "Precision", "Matrix", "Omni", "Vanguard", "Genesis", "Synergy", "Vertex", "Astra", "Zenith", "Quantum", "Nexus", "Pinnacle"];
   let roots = ["Industrial", "Automation", "Engineering", "Dynamics", "Systems", "Technologies", "Solutions", "Components", "Works", "Enterprise"];
   let suffixes = ["Pvt Ltd", "Corporation", "India Ltd", "Global", "Tech Labs"];
 
   if (ind.includes("elevator") || ind.includes("lift")) {
-    prefixes = ["Surass", "Otis", "Kone", "Schindler", "ApexElevators", "ZenithLifts", "VanguardElevator", "PrecisionLift", "MatrixVertical"];
+    prefixes = ["Otis", "Kone", "Schindler", "ApexElevators", "ZenithLifts", "VanguardElevator", "PrecisionLift", "MatrixVertical"];
     roots = ["Elevators", "Lifts", "Vertical Mobility", "Escalators", "Elevator Systems", "Lift Automation"];
   } else if (ind.includes("health")) {
     prefixes = ["CarePlus", "Zenith", "MedVanguard", "OmniCare", "BioHealth", "ApexMed", "PulseCare", "Vitalis", "Apollo", "Lifeline", "DiagTech"];

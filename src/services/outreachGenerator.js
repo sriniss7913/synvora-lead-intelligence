@@ -100,6 +100,61 @@ Respond in this exact JSON format (no markdown, no explanation, just the JSON):
 }
 
 /**
+ * Fallback: Call Grok xAI API when Gemini fails
+ */
+async function generateWithGrok(company, scoreData, grokApiKey) {
+  const context = buildCompanyContext(company, scoreData);
+
+  const prompt = `You are a B2B sales outreach specialist for Synvora Technologies, an Indian AI automation company that helps SMEs and industrial businesses automate manual workflows, improve customer response times, and gain real-time operational visibility.
+
+Here is the real data for the lead company you must write outreach for:
+
+${context}
+
+Based ONLY on the real data above, write personalized outreach. Do NOT invent facts. If the rating is low, mention it tactfully as an opportunity. If there's no website, highlight digital presence as a gap. Reference the actual category/location.
+
+Respond in this exact JSON format (no markdown, no explanation, just the JSON):
+{
+  "emailSubject": "concise subject line under 60 chars",
+  "emailBody": "3-paragraph cold email, professional, specific to this company's actual situation, under 180 words",
+  "whatsapp": "friendly WhatsApp message under 80 words referencing their actual business category and location",
+  "callScript": "30-second cold call opening line referencing their real company name and category",
+  "reasoning": "1 sentence explaining what specific real signal made this outreach angle unique"
+}`;
+
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${grokApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'grok-3-mini-fast',
+      messages: [
+        { role: 'system', content: 'You are Synvora AI Lead Intelligence Engine.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!res.ok) throw new Error(`Grok HTTP ${res.status}`);
+
+  const data = await res.json();
+  const rawText = data?.choices?.[0]?.message?.content || '';
+  const jsonStr = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const parsed = JSON.parse(jsonStr);
+
+  return {
+    email: { subject: parsed.emailSubject, body: parsed.emailBody },
+    whatsapp: parsed.whatsapp,
+    callScript: parsed.callScript,
+    linkedin: `Hi, I came across ${company.companyName} on Google Maps and noticed your ${company.category || 'business'} in ${company.location}. At Synvora, we help similar businesses automate workflows and reduce manual overhead. Would love to connect!`,
+    reasoning: parsed.reasoning,
+    generatedBy: 'grok'
+  };
+}
+
+/**
  * Improved fallback template — uses all real Apify fields
  * Adapts message tone based on real signals
  */
@@ -164,13 +219,24 @@ www.synvoratech.in`;
 /**
  * Main export — tries Gemini first, gracefully falls back to template on rate limits
  */
-export async function generatePersonalizedOutreach(company, scoreData, geminiApiKey = '') {
+export async function generatePersonalizedOutreach(company, scoreData, geminiApiKey = '', grokApiKey = '') {
+  // Try Gemini first (primary AI)
   if (geminiApiKey) {
     try {
       return await generateWithGemini(company, scoreData, geminiApiKey);
     } catch (err) {
-      console.warn('Gemini outreach rate limited or failed, using smart template fallback:', err.message);
+      console.warn('Gemini outreach failed, attempting Grok fallback:', err.message);
     }
   }
+
+  // Fallback to Grok xAI if Gemini failed or unavailable
+  if (grokApiKey) {
+    try {
+      return await generateWithGrok(company, scoreData, grokApiKey);
+    } catch (err) {
+      console.warn('Grok outreach also failed, using smart template fallback:', err.message);
+    }
+  }
+
   return generateTemplateFallback(company, scoreData);
 }

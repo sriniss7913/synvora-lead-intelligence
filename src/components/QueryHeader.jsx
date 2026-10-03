@@ -54,39 +54,75 @@ export default function QueryHeader({ onSearch, isSearching }) {
           Enter any natural business query (e.g. <i>"SMEs in Hyderabad with 10-50 employees"</i>) across any city, region, or industry.
         </p>
 
-        {/* Data Provider Switcher Bar */}
-        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Scraper Engine:
-          </span>
+        {/* Lead Generation Mode Toggle */}
+        <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-light)" }}>
+          <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--accent-cyan)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            ⚡ Lead Generation Mode
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setProvider("gemini")}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
-              cursor: "pointer", border: "none", transition: "all 0.2s ease",
-              background: provider === "gemini" ? "linear-gradient(135deg, #a855f7, #06b6d4)" : "rgba(255,255,255,0.05)",
-              color: "#fff",
-              boxShadow: provider === "gemini" ? "0 0 12px rgba(168,85,247,0.4)" : "none"
-            }}
-          >
-            ✨ Gemini AI Live Search <span style={{ opacity: 0.8, fontSize: "0.7rem", fontWeight: 400 }}>(3-5 sec, Free)</span>
-          </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {/* AI Mode Card */}
+            <button
+              type="button"
+              onClick={() => setProvider("gemini")}
+              style={{
+                padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                transition: "all 0.25s ease", border: "none",
+                background: provider === "gemini"
+                  ? "linear-gradient(135deg, rgba(168,85,247,0.2), rgba(6,182,212,0.15))"
+                  : "rgba(255,255,255,0.03)",
+                outline: provider === "gemini" ? "2px solid rgba(168,85,247,0.6)" : "1px solid var(--border-light)",
+                boxShadow: provider === "gemini" ? "0 0 20px rgba(168,85,247,0.2)" : "none"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: "1.3rem" }}>✨</span>
+                <span style={{ fontWeight: 800, fontSize: "0.95rem", color: provider === "gemini" ? "#c084fc" : "#fff" }}>
+                  AI Mode
+                </span>
+                {provider === "gemini" && <span style={{ fontSize: "0.65rem", background: "rgba(168,85,247,0.3)", color: "#c084fc", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>ACTIVE</span>}
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Gemini AI + Google Search Grounding
+              </div>
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: "0.72rem", color: "#10b981" }}>⚡ Fast — 3-5 seconds</span>
+                <span style={{ fontSize: "0.72rem", color: "#10b981" }}>🔑 Needs Gemini or Grok key</span>
+                <span style={{ fontSize: "0.72rem", color: "#fbbf24" }}>⚠️ Burns LLM tokens for search + outreach</span>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setProvider("apify")}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
-              cursor: "pointer", border: "none", transition: "all 0.2s ease",
-              background: provider === "apify" ? "linear-gradient(135deg, #06b6d4, #3b82f6)" : "rgba(255,255,255,0.05)",
-              color: "#fff",
-              boxShadow: provider === "apify" ? "0 0 12px rgba(6,182,212,0.4)" : "none"
-            }}
-          >
-            📍 Apify Google Maps Scraper <span style={{ opacity: 0.8, fontSize: "0.7rem", fontWeight: 400 }}>(Deep Scrape)</span>
-          </button>
+            {/* Apify Mode Card */}
+            <button
+              type="button"
+              onClick={() => setProvider("apify")}
+              style={{
+                padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                transition: "all 0.25s ease", border: "none",
+                background: provider === "apify"
+                  ? "linear-gradient(135deg, rgba(6,182,212,0.2), rgba(59,130,246,0.15))"
+                  : "rgba(255,255,255,0.03)",
+                outline: provider === "apify" ? "2px solid rgba(6,182,212,0.6)" : "1px solid var(--border-light)",
+                boxShadow: provider === "apify" ? "0 0 20px rgba(6,182,212,0.2)" : "none"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: "1.3rem" }}>📍</span>
+                <span style={{ fontWeight: 800, fontSize: "0.95rem", color: provider === "apify" ? "#22d3ee" : "#fff" }}>
+                  Apify Scraper Mode
+                </span>
+                {provider === "apify" && <span style={{ fontSize: "0.65rem", background: "rgba(6,182,212,0.3)", color: "#22d3ee", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>ACTIVE</span>}
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Google Maps deep scrape via Apify actors
+              </div>
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: "0.72rem", color: "#10b981" }}>🗺️ Deep — real Google Maps data</span>
+                <span style={{ fontSize: "0.72rem", color: "#10b981" }}>💰 LLM tokens used for outreach only</span>
+                <span style={{ fontSize: "0.72rem", color: "#fbbf24" }}>⏱️ Slower — 60-180 seconds</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 

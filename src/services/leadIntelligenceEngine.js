@@ -1,5 +1,5 @@
 import { scrapeAllSources } from "./apifyService";
-import { searchLeadsWithGemini } from "./geminiSearchService";
+import { searchLeadsWithGemini, searchLeadsWithGrok } from "./geminiSearchService";
 import { findCompanyEmail } from "./hunterService";
 import { calculateLeadScore } from "./scoreCalculator";
 import { generatePersonalizedOutreach } from "./outreachGenerator";
@@ -12,7 +12,7 @@ export function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return { apifyToken: "", hunterApiKey: "" };
+  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "" };
 }
 
 export function saveSettings(settings) {
@@ -22,7 +22,7 @@ export function saveSettings(settings) {
 }
 
 /** Enrich a real company record with scoring and outreach copy */
-export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
+export async function enrichRealCompany(rawCompany, geminiApiKey = '', grokApiKey = '') {
   const hasSocialMedia = !!(rawCompany.socialMedia?.facebook || rawCompany.socialMedia?.instagram || rawCompany.socialMedia?.linkedin);
   const sourceCount = rawCompany.sources?.length || 1;
 
@@ -49,7 +49,7 @@ export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
   };
 
   const scoreData = calculateLeadScore(company);
-  const outreach = await generatePersonalizedOutreach(company, scoreData, geminiApiKey);
+  const outreach = await generatePersonalizedOutreach(company, scoreData, geminiApiKey, grokApiKey);
 
   return {
     ...company,
@@ -73,7 +73,7 @@ export async function enrichRealCompany(rawCompany, geminiApiKey = '') {
  * Merges and deduplicates results from Google Maps, Email Extractor, and Google Search.
  */
 export async function executeLeadDiscovery(queryText, filters = {}, settings = {}, onProgress = null) {
-  const { apifyToken, hunterApiKey, geminiApiKey } = settings;
+  const { apifyToken, hunterApiKey, geminiApiKey, grokApiKey } = settings;
   const provider = filters.provider || (settings.apifyToken ? 'apify' : 'gemini');
 
   const city   = filters.city || '';
@@ -85,13 +85,27 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   let rawResults = [];
 
   if (provider === 'gemini') {
-    if (!geminiApiKey) throw new Error("GEMINI_TOKEN_MISSING");
-    if (onProgress) onProgress("✨ Searching live Google web listings via Gemini AI...");
+    if (!geminiApiKey && !grokApiKey) throw new Error("GEMINI_TOKEN_MISSING");
+    if (onProgress) onProgress("✨ Searching live web listings via AI...");
     try {
-      rawResults = await searchLeadsWithGemini(queryText, city, count, geminiApiKey);
+      if (geminiApiKey) {
+        rawResults = await searchLeadsWithGemini(queryText, city, count, geminiApiKey);
+      } else {
+        throw new Error('No Gemini key, trying Grok fallback');
+      }
     } catch (err) {
-      if (err.message === 'GEMINI_TOKEN_MISSING') throw err;
-      throw new Error(`SCRAPE_FAILED: ${err.message}`);
+      // Fallback to Grok if Gemini fails
+      if (grokApiKey) {
+        if (onProgress) onProgress("🤖 Gemini failed, switching to Grok xAI fallback...");
+        try {
+          rawResults = await searchLeadsWithGrok(queryText, city, count, grokApiKey);
+        } catch (grokErr) {
+          throw new Error(`SCRAPE_FAILED: Both Gemini and Grok failed. Gemini: ${err.message}, Grok: ${grokErr.message}`);
+        }
+      } else {
+        if (err.message === 'GEMINI_TOKEN_MISSING') throw err;
+        throw new Error(`SCRAPE_FAILED: ${err.message}`);
+      }
     }
   } else {
     if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
@@ -174,7 +188,8 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
     const company = enrichedWithEmail[i];
     const enriched = await enrichRealCompany(
       { ...company, id: `lead-real-${Date.now()}-${i}` },
-      geminiApiKey
+      geminiApiKey,
+      grokApiKey
     );
     finalLeads.push(enriched);
   }

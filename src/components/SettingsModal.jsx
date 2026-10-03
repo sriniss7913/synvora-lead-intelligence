@@ -5,6 +5,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const [apifyToken, setApifyToken] = useState(settings.apifyToken || "");
   const [hunterApiKey, setHunterApiKey] = useState(settings.hunterApiKey || "");
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || "");
+  const [grokApiKey, setGrokApiKey] = useState(settings.grokApiKey || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = (e) => {
@@ -13,6 +14,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
       apifyToken: apifyToken.trim(),
       hunterApiKey: hunterApiKey.trim(),
       geminiApiKey: geminiApiKey.trim(),
+      grokApiKey: grokApiKey.trim(),
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -24,6 +26,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const hasApify = apifyToken.trim().length > 10;
   const hasHunter = hunterApiKey.trim().length > 10;
   const hasGemini = geminiApiKey.trim().length > 10;
+  const hasGrok = grokApiKey.trim().length > 10;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -192,6 +195,55 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
             </details>
           </div>
 
+          {/* Grok xAI Section — Fallback */}
+          <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasGrok ? 'rgba(239,68,68,0.5)' : 'var(--border-light)'}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: "1.3rem" }}>🤖</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                  Grok xAI — Fallback AI Provider
+                  {hasGrok && <span style={{ marginLeft: 8, color: "#ef4444", fontSize: "0.72rem" }}>✅ Connected</span>}
+                  <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "var(--text-dim)", fontWeight: 400 }}>(Optional Fallback)</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Auto-fallback when Gemini rate limits or token expires • Uses Grok 3 Mini
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.85rem", marginBottom: 8 }}
+              placeholder="xai-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              value={grokApiKey}
+              onChange={(e) => setGrokApiKey(e.target.value)}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <ShieldCheck size={11} color="var(--tier-nurture)" /> Stored locally in your browser only
+              </div>
+              <a
+                href="https://console.x.ai/"
+                target="_blank" rel="noreferrer"
+                style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+              >
+                Get free Grok API key <ExternalLink size={10} />
+              </a>
+            </div>
+
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ fontSize: "0.75rem", color: "var(--accent-cyan)", cursor: "pointer" }}>📖 Why add a fallback? (30 seconds)</summary>
+              <ul style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, paddingLeft: 16, lineHeight: 1.7 }}>
+                <li>Gemini's free tier has <strong>1,500 RPD limit</strong> — heavy usage can exhaust it</li>
+                <li>When Gemini fails (429/expired token), Grok automatically takes over</li>
+                <li>No interruption to your lead generation workflow</li>
+                <li>Get your free key at <strong>console.x.ai</strong></li>
+              </ul>
+            </details>
+          </div>
+
           {/* Status Banner */}
           {!hasApify && (
             <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#fbbf24", marginBottom: 20, display: "flex", gap: 8 }}>
@@ -204,6 +256,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
             <div style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#6ee7b7", marginBottom: 20 }}>
               ✅ <strong>Ready for real leads.</strong>{" "}
               {hasGemini ? "Gemini AI will write unique outreach per lead. " : "Add Gemini key for AI-written outreach. "}
+              {hasGrok ? "Grok xAI connected as fallback. " : ""}
               {hasHunter ? "Hunter.io connected for email enrichment." : ""}
             </div>
           )}

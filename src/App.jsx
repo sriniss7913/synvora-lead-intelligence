@@ -24,7 +24,7 @@ const SETTINGS_KEY = "synvora_lead_intelligence_settings_v2";
 export default function App() {
   const [leads, setLeads] = useState([]);           // Current session fresh search results
   const [historyCount, setHistoryCount] = useState(0);
-  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "" });
+  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "" });
   const [activeView, setActiveView] = useState("table"); // 'table' | 'kanban' | 'history'
   const [isSearching, setIsSearching] = useState(false);
   const [progressSteps, setProgressSteps] = useState([]); // array of { msg, done }
@@ -83,8 +83,8 @@ export default function App() {
   const handleSearch = async (queryText, filters) => {
     const targetProvider = filters.provider || (settings.apifyToken ? 'apify' : 'gemini');
 
-    if (targetProvider === 'gemini' && !settings.geminiApiKey) {
-      triggerToast("⚠️ Please add your Gemini API key in Settings first!", true);
+    if (targetProvider === 'gemini' && !settings.geminiApiKey && !settings.grokApiKey) {
+      triggerToast("⚠️ Please add your Gemini or Grok API key in Settings first!", true);
       setShowSettingsModal(true);
       return;
     }

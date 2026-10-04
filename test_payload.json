@@ -1,0 +1,19 @@
+﻿{
+  "action": "sync_leads",
+  "leads": [
+    {
+      "companyName": "Test Synvora Robotics",
+      "category": "Industrial Automation",
+      "location": "Coimbatore",
+      "phone": "+91 9876543210",
+      "email": "contact@synvorarobotics.in",
+      "rating": 4.9,
+      "reviewsCount": 25,
+      "decisionMakerName": "Managing Director",
+      "score": 90,
+      "tier": "Hot lead",
+      "outreachStatus": "New",
+      "googleMapsUrl": "https://maps.google.com"
+    }
+  ]
+}

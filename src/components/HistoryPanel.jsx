@@ -81,18 +81,17 @@ export default function HistoryPanel() {
     }
 
     setSyncing(true);
-    setSyncMessage("Syncing with Google Sheet...");
+    setSyncMessage("Connecting to Google Sheet...");
     try {
       const localLeads = await getAllHistoryLeads();
-      if (localLeads.length > 0) {
+      if (localLeads && localLeads.length > 0) {
         setSyncMessage(`Pushing ${localLeads.length} leads to Google Sheet...`);
         await syncLeadsToGoogleSheet(localLeads, sheetUrl);
+        // Wait 3 seconds for Google Sheets write quota & execution
+        await new Promise(r => setTimeout(r, 3000));
       }
 
-      // Give Google Apps Script a second to write
-      await new Promise(r => setTimeout(r, 1500));
-
-      setSyncMessage("Fetching latest data from sheet...");
+      setSyncMessage("Fetching all leads from Google Sheet database...");
       const sheetLeads = await fetchLeadsFromGoogleSheet(sheetUrl);
       if (sheetLeads && sheetLeads.length > 0) {
         setLeads(sheetLeads);
@@ -104,16 +103,16 @@ export default function HistoryPanel() {
           s[st] = sheetLeads.filter(l => l.outreachStatus === st).length;
         });
         setStats(s);
-        setSyncMessage(`✅ Synced! ${sheetLeads.length} leads in Google Sheet.`);
+        setSyncMessage(`✅ Database Synced! ${sheetLeads.length} leads loaded from Google Sheet.`);
       } else {
-        setSyncMessage("✅ Pushed leads to Google Sheet!");
+        setSyncMessage("✅ Connected! Google Sheet is active.");
       }
     } catch (err) {
       console.error("Sync failed:", err);
-      setSyncMessage("⚠️ Sync failed. Check Webhook permissions ('Anyone').");
+      setSyncMessage(`⚠️ Sync error: ${err.message || 'Check Webhook setup'}`);
     } finally {
       setSyncing(false);
-      setTimeout(() => setSyncMessage(null), 4000);
+      setTimeout(() => setSyncMessage(null), 5000);
     }
   };
 

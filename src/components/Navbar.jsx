@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Sliders, Download, Clock, LayoutGrid, Table, Key } from "lucide-react";
+import { Sparkles, Sliders, Download, Clock, LayoutGrid, Table, Key, ExternalLink } from "lucide-react";
 
 export default function Navbar({
   activeView,
@@ -11,6 +11,7 @@ export default function Navbar({
   historyCount
 }) {
   const hasRealData = !!(settings.apifyToken);
+  const googleSheetUrl = settings.googleSheetUrl || "";
 
   return (
     <nav className="glass-panel" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: "10px 16px", position: "sticky", top: 0, zIndex: 100 }}>
@@ -75,11 +76,36 @@ export default function Navbar({
 
         {/* Action Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+
+          {/* Google Sheet Link — shown when configured */}
+          {googleSheetUrl && (
+            <a
+              href={googleSheetUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-secondary"
+              style={{
+                padding: "5px 10px",
+                fontSize: "0.78rem",
+                color: "#10b981",
+                border: "1px solid rgba(16,185,129,0.35)",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                textDecoration: "none",
+                borderRadius: 6
+              }}
+              title="Open synced Google Sheet"
+            >
+              📊 Open Sheet <ExternalLink size={11} />
+            </a>
+          )}
+
           <button
             onClick={onOpenSettings}
             className="btn-secondary"
             style={{ padding: "5px 10px", fontSize: "0.78rem", color: hasRealData ? "var(--text-muted)" : "#f59e0b", border: !hasRealData ? "1px solid rgba(245,158,11,0.4)" : undefined }}
-            title="Configure Apify & Hunter.io API Keys"
+            title="Configure API Keys"
           >
             <Sliders size={14} /> {hasRealData ? "Settings" : "⚙️ Add API Keys"}
           </button>
@@ -95,3 +121,4 @@ export default function Navbar({
     </nav>
   );
 }
+

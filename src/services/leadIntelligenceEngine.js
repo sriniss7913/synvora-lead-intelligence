@@ -12,7 +12,7 @@ export function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "" };
+  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "", googleSheetUrl: "" };
 }
 
 export function saveSettings(settings) {
@@ -108,11 +108,14 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
       }
     }
   } else {
-    if (!apifyToken) throw new Error("APIFY_TOKEN_MISSING");
+    if (!apifyToken) throw new Error(\"APIFY_TOKEN_MISSING\");
     try {
+      // Request 3x more leads than needed to compensate for contact-info filtering
+      const fetchCount = count * 3;
       rawResults = await scrapeAllSources(
-        queryText, city, count, apifyToken, coords, onProgress,
-        useEmails, useSearchBackup
+        queryText, city, fetchCount, apifyToken, coords, onProgress,
+        true,  // always run email extractor
+        useSearchBackup
       );
     } catch (err) {
       if (err.message === 'APIFY_TOKEN_MISSING') throw err;
@@ -182,8 +185,20 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
     })
   );
 
-  // Filter out leads with no email AND no phone before scoring
-  enrichedWithEmail = enrichedWithEmail.filter(company => company.companyEmail || company.email || company.phone);
+  // Drop leads with absolutely no contact info (no email AND no phone)
+  enrichedWithEmail = enrichedWithEmail.filter(c => c.companyEmail || c.email || c.phone);
+
+  // Sort: email leads first (1st preference), phone-only leads second
+  enrichedWithEmail.sort((a, b) => {
+    const aHasEmail = !!(a.companyEmail || a.email);
+    const bHasEmail = !!(b.companyEmail || b.email);
+    if (aHasEmail && !bHasEmail) return -1;
+    if (!aHasEmail && bHasEmail) return 1;
+    return 0;
+  });
+
+  // Cap to the originally requested count
+  enrichedWithEmail = enrichedWithEmail.slice(0, count);
 
   // 4. Score, enrich, and return
   const finalLeads = [];

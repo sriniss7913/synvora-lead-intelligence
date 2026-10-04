@@ -7,6 +7,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || "");
   const [grokApiKey, setGrokApiKey] = useState(settings.grokApiKey || "");
   const [googleSheetWebhookUrl, setGoogleSheetWebhookUrl] = useState(settings.googleSheetWebhookUrl || "");
+  const [googleSheetUrl, setGoogleSheetUrl] = useState(settings.googleSheetUrl || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = (e) => {
@@ -17,6 +18,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
       geminiApiKey: geminiApiKey.trim(),
       grokApiKey: grokApiKey.trim(),
       googleSheetWebhookUrl: googleSheetWebhookUrl.trim(),
+      googleSheetUrl: googleSheetUrl.trim(),
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -263,13 +265,28 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
               </div>
             </div>
 
+            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>
+              Webhook URL (for auto-sync):
+            </div>
+            <input
+              type="url"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.83rem", marginBottom: 10 }}
+              placeholder="https://script.google.com/macros/s/.../exec  or  Make/Zapier Webhook URL"
+              value={googleSheetWebhookUrl}
+              onChange={(e) => setGoogleSheetWebhookUrl(e.target.value)}
+            />
+
+            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>
+              Google Sheet URL (for the "Open Sheet" button in navbar):
+            </div>
             <input
               type="url"
               className="glass-input"
               style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.83rem", marginBottom: 8 }}
-              placeholder="https://script.google.com/macros/s/.../exec or Make/Zapier Webhook URL"
-              value={googleSheetWebhookUrl}
-              onChange={(e) => setGoogleSheetWebhookUrl(e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              value={googleSheetUrl}
+              onChange={(e) => setGoogleSheetUrl(e.target.value)}
             />
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>

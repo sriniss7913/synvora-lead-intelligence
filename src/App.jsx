@@ -25,7 +25,7 @@ const SETTINGS_KEY = "synvora_lead_intelligence_settings_v2";
 export default function App() {
   const [leads, setLeads] = useState([]);           // Current session fresh search results
   const [historyCount, setHistoryCount] = useState(0);
-  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "" });
+  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "", googleSheetUrl: "" });
   const [activeView, setActiveView] = useState("table"); // 'table' | 'kanban' | 'history'
   const [isSearching, setIsSearching] = useState(false);
   const [progressSteps, setProgressSteps] = useState([]); // array of { msg, done }

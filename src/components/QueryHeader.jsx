@@ -10,8 +10,8 @@ export default function QueryHeader({ onSearch, isSearching }) {
   const [leadCount, setLeadCount] = useState("10");
   const [showFilters, setShowFilters] = useState(false);
   const [provider, setProvider] = useState("gemini");
-  const [useEmails, setUseEmails] = useState(false);
-  const [useSearchBackup, setUseSearchBackup] = useState(false);
+  const [useEmails, setUseEmails] = useState(true);
+  const [useSearchBackup, setUseSearchBackup] = useState(true);
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();

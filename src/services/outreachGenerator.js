@@ -41,13 +41,13 @@ Here is the real data for the lead company you must write outreach for:
 
 ${context}
 
-Based ONLY on the real data above, write personalized outreach. Do NOT invent facts. If the rating is low, mention it tactfully as an opportunity. If there's no website, highlight digital presence as a gap. Reference the actual category/location.
+Based ONLY on the real data above, write personalized outreach. Do NOT invent facts.
 
 Respond in this exact JSON format (no markdown, no explanation, just the JSON):
 {
-  "emailSubject": "concise subject line under 60 chars",
-  "emailBody": "3-paragraph cold email, professional, specific to this company's actual situation, under 180 words",
-  "whatsapp": "friendly WhatsApp message under 80 words referencing their actual business category and location",
+  "emailSubject": "Free Workflow Assessment for [Company Name]",
+  "emailBody": "Hello [Company Name] Team,\n\nWe came across [Company Name] in [Location], operating as a [Category]. For a [Category], managing customer enquiries, [insert 2-3 specific workflows based on category], and communication through online channels can involve several recurring workflows.\n\nAt Synvora Technologies, we help businesses explore practical improvements through AI, CRM and workflow automation, inventory and order automation, customer support automation, data analytics, and digital transformation.\n\nRather than simply suggesting a solution, we would first like to understand how your current workflows and processes are managed and identify whether there are any areas where technology could genuinely help.\n\nWe would be happy to offer a free consultation and workflow assessment, with no obligation. If we identify any useful opportunities, we can then discuss possible solutions.\n\nWould you be open to a brief conversation at your convenience?\n\nBest regards,\nSynvora Technologies\n7812876220\n[synvoratech.in](http://synvoratech.in/)\nInstagram: https://www.instagram.com/technologiessynvora/",
+  "whatsapp": "Hello [Company Name] Team 👋\n\nWe came across your business in the [Category] segment. Managing customer enquiries, [insert 1-2 specific workflows], follow-ups, customer information and reporting can involve several day-to-day activities.\n\nAt Synvora Technologies, we help businesses improve such processes through AI, workflow automation, business software, data analytics, reporting dashboards, Website solutions and Cybersecurity.\n\nRather than suggesting a solution immediately, we would first like to understand your current workflow and identify whether technology could genuinely make any part of your operations easier.\n\nWould you be available for a brief conversation? 😊\n\n📞 7812876220\n🌐 synvoratech.in\n📸 Instagram: https://www.instagram.com/technologiessynvora/",
   "callScript": "30-second cold call opening line referencing their real company name and category",
   "reasoning": "1 sentence explaining what specific real signal made this outreach angle unique"
 }`;
@@ -111,13 +111,13 @@ Here is the real data for the lead company you must write outreach for:
 
 ${context}
 
-Based ONLY on the real data above, write personalized outreach. Do NOT invent facts. If the rating is low, mention it tactfully as an opportunity. If there's no website, highlight digital presence as a gap. Reference the actual category/location.
+Based ONLY on the real data above, write personalized outreach. Do NOT invent facts.
 
 Respond in this exact JSON format (no markdown, no explanation, just the JSON):
 {
-  "emailSubject": "concise subject line under 60 chars",
-  "emailBody": "3-paragraph cold email, professional, specific to this company's actual situation, under 180 words",
-  "whatsapp": "friendly WhatsApp message under 80 words referencing their actual business category and location",
+  "emailSubject": "Free Workflow Assessment for [Company Name]",
+  "emailBody": "Hello [Company Name] Team,\n\nWe came across [Company Name] in [Location], operating as a [Category]. For a [Category], managing customer enquiries, [insert 2-3 specific workflows based on category], and communication through online channels can involve several recurring workflows.\n\nAt Synvora Technologies, we help businesses explore practical improvements through AI, CRM and workflow automation, inventory and order automation, customer support automation, data analytics, and digital transformation.\n\nRather than simply suggesting a solution, we would first like to understand how your current workflows and processes are managed and identify whether there are any areas where technology could genuinely help.\n\nWe would be happy to offer a free consultation and workflow assessment, with no obligation. If we identify any useful opportunities, we can then discuss possible solutions.\n\nWould you be open to a brief conversation at your convenience?\n\nBest regards,\nSynvora Technologies\n7812876220\n[synvoratech.in](http://synvoratech.in/)\nInstagram: https://www.instagram.com/technologiessynvora/",
+  "whatsapp": "Hello [Company Name] Team 👋\n\nWe came across your business in the [Category] segment. Managing customer enquiries, [insert 1-2 specific workflows], follow-ups, customer information and reporting can involve several day-to-day activities.\n\nAt Synvora Technologies, we help businesses improve such processes through AI, workflow automation, business software, data analytics, reporting dashboards, Website solutions and Cybersecurity.\n\nRather than suggesting a solution immediately, we would first like to understand your current workflow and identify whether technology could genuinely make any part of your operations easier.\n\nWould you be available for a brief conversation? 😊\n\n📞 7812876220\n🌐 synvoratech.in\n📸 Instagram: https://www.instagram.com/technologiessynvora/",
   "callScript": "30-second cold call opening line referencing their real company name and category",
   "reasoning": "1 sentence explaining what specific real signal made this outreach angle unique"
 }`;
@@ -191,27 +191,47 @@ function generateTemplateFallback(company, scoreData) {
     pitchLine = `Synvora builds custom AI automation tools for ${category} businesses — from enquiry management to workflow automation — reducing manual overhead by 60–80%.`;
   }
 
-  const emailBody = `Hi,
+  const emailBody = `Hello ${name} Team,
 
-${painLine}
+We came across ${name} in ${location}, operating as a ${category}. For a ${category}, managing customer enquiries, repeat customer interactions, inventory/service coordination, and communication through online channels can involve several recurring workflows.
 
-${pitchLine}
+At Synvora Technologies, we help businesses explore practical improvements through AI, CRM and workflow automation, inventory and order automation, customer support automation, data analytics, and digital transformation.
 
-We'd love to share a quick case study of how we helped a similar ${category} business in ${location} — would you be open to a 10-minute call this week?
+Rather than simply suggesting a solution, we would first like to understand how your current workflows and processes are managed and identify whether there are any areas where technology could genuinely help.
+
+We would be happy to offer a free consultation and workflow assessment, with no obligation. If we identify any useful opportunities, we can then discuss possible solutions.
+
+Would you be open to a brief conversation at your convenience?
 
 Best regards,
 Synvora Technologies
-www.synvoratech.in`;
+7812876220
+http://synvoratech.in/
+Instagram: https://www.instagram.com/technologiessynvora/`;
+
+  const whatsappMsg = `Hello ${name} Team 👋
+
+We came across your business in the ${category} segment. Managing customer enquiries, service/order coordination, follow-ups, customer information and reporting can involve several day-to-day activities.
+
+At Synvora Technologies, we help businesses improve such processes through AI, workflow automation, business software, data analytics, reporting dashboards, Website solutions and Cybersecurity.
+
+Rather than suggesting a solution immediately, we would first like to understand your current workflow and identify whether technology could genuinely make any part of your operations easier.
+
+Would you be available for a brief conversation? 😊
+
+📞 7812876220
+🌐 synvoratech.in
+📸 Instagram: https://www.instagram.com/technologiessynvora/`;
 
   return {
     email: {
-      subject: `Workflow automation opportunity for ${name}`,
+      subject: `Free Workflow Assessment for ${name}`,
       body: emailBody
     },
-    whatsapp: `Hello, greetings from Synvora Technologies! 🙏\n\nWe work with ${category} businesses in ${location} to automate customer enquiries and operational workflows.\n\n${hasSocial ? "Saw your presence online — " : ""}May I share how we helped a similar business save 15+ hours/week?\n\nSynvora Technologies`,
-    callScript: `"Hi, this is [Your Name] from Synvora Technologies. I'm calling specifically about ${name} — we work with ${category} businesses in ${location} to automate customer enquiries and operational workflows. I know that's a busy space — do you have 2 minutes for me to share one specific result we got for a similar company?"`,
-    linkedin: `Hi, came across ${name} on Google Maps — impressive ${category} operation in ${location}. At Synvora, we help similar businesses automate their backend workflows. Would love to connect and share a quick case study!`,
-    reasoning: `Angle: ${angle} — based on real signals: rating=${rating || 'N/A'}, reviews=${reviews}, website=${hasWebsite}, social=${hasSocial}`,
+    whatsapp: whatsappMsg,
+    callScript: `"Hi, this is [Your Name] from Synvora Technologies. I'm calling specifically about ${name} — we work with ${category} businesses in ${location} to help explore workflow and customer communication improvements. Rather than pitching a solution, we're offering a free workflow assessment. Would you be open to a brief 2-minute chat at your convenience?"`,
+    linkedin: `Hi, came across ${name} in ${location}. At Synvora, we help ${category} businesses explore practical workflow automation & technology solutions. Would love to connect and offer a brief workflow assessment!`,
+    reasoning: `Angle: Consultative assessment for ${category} in ${location} — based on real signals: rating=${rating || 'N/A'}, reviews=${reviews}, website=${hasWebsite}`,
     generatedBy: 'template'
   };
 }

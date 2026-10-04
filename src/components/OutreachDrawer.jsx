@@ -1,22 +1,43 @@
 import React, { useState } from "react";
 import { X, Mail, Share2, MessageSquare, PhoneCall, Copy, Check, ThumbsUp, XCircle, Sparkles, ExternalLink, Send } from "lucide-react";
+import { generatePersonalizedOutreach } from "../services/outreachGenerator";
+import { calculateLeadScore } from "../services/scoreCalculator";
 
-export default function OutreachDrawer({ company, onClose, onUpdateStatus }) {
+export default function OutreachDrawer({ company, onClose, onUpdateStatus, settings }) {
   if (!company) return null;
 
-  const outreachData = company.outreach || {};
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [outreachData, setOutreachData] = useState(company.outreach || null);
+
   const [activeTab, setActiveTab] = useState("email"); // email, linkedin, whatsapp, call
   const [copiedTab, setCopiedTab] = useState(null);
 
   // Editable states
-  const [emailSubject, setEmailSubject] = useState(outreachData.email?.subject || "");
-  const [emailBody, setEmailBody] = useState(outreachData.email?.body || "");
-  const [linkedinMsg, setLinkedinMsg] = useState(outreachData.linkedin || "");
-  const [whatsappMsg, setWhatsappMsg] = useState(outreachData.whatsapp || "");
+  const [emailSubject, setEmailSubject] = useState(company.outreach?.email?.subject || "");
+  const [emailBody, setEmailBody] = useState(company.outreach?.email?.body || "");
+  const [linkedinMsg, setLinkedinMsg] = useState(company.outreach?.linkedin || "");
+  const [whatsappMsg, setWhatsappMsg] = useState(company.outreach?.whatsapp || "");
 
   const dm = company.decisionMaker || {};
   const targetEmail = dm.email || company.companyEmail || "";
   const targetPhone = dm.phone || "";
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    try {
+      const generated = await generatePersonalizedOutreach(company, calculateLeadScore(company), settings.geminiApiKey, settings.grokApiKey);
+      setOutreachData(generated);
+      setEmailSubject(generated.email?.subject || "");
+      setEmailBody(generated.email?.body || "");
+      setLinkedinMsg(generated.linkedin || "");
+      setWhatsappMsg(generated.whatsapp || "");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate outreach");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Helper for 1-Click WhatsApp
   const handleLaunchWhatsApp = () => {
@@ -103,13 +124,21 @@ export default function OutreachDrawer({ company, onClose, onUpdateStatus }) {
           </div>
         </div>
 
-        {/* Why Synvora Contacting Banner */}
-        <div style={{ background: "rgba(6, 182, 212, 0.1)", border: "1px solid rgba(6, 182, 212, 0.25)", padding: 12, borderRadius: 8, fontSize: "0.82rem", color: "var(--text-main)", marginBottom: 20 }}>
-          💡 <strong>Tailored Trigger:</strong> {outreachData.reasoning || company.whyContactReason}
-        </div>
+        {!outreachData ? (
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
+            <button onClick={handleGenerate} className="btn-primary" disabled={isGenerating} style={{ padding: "12px 24px", fontSize: "1rem" }}>
+              <Sparkles size={18} /> {isGenerating ? "Generating..." : "Generate AI Draft"}
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Why Synvora Contacting Banner */}
+            <div style={{ background: "rgba(6, 182, 212, 0.1)", border: "1px solid rgba(6, 182, 212, 0.25)", padding: 12, borderRadius: 8, fontSize: "0.82rem", color: "var(--text-main)", marginBottom: 20 }}>
+              💡 <strong>Tailored Trigger:</strong> {outreachData.reasoning || company.whyContactReason}
+            </div>
 
-        {/* Multi-Channel Tabs */}
-        <div style={{ display: "flex", borderBottom: "1px solid var(--border-light)", marginBottom: 20 }}>
+            {/* Multi-Channel Tabs */}
+            <div style={{ display: "flex", borderBottom: "1px solid var(--border-light)", marginBottom: 20 }}>
           <button
             onClick={() => setActiveTab("email")}
             style={{
@@ -342,7 +371,8 @@ export default function OutreachDrawer({ company, onClose, onUpdateStatus }) {
             </button>
           </div>
         </div>
-
+        </>
+        )}
       </div>
     </div>
   );

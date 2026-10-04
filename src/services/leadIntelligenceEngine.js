@@ -49,7 +49,7 @@ export async function enrichRealCompany(rawCompany, geminiApiKey = '', grokApiKe
   };
 
   const scoreData = calculateLeadScore(company);
-  const outreach = await generatePersonalizedOutreach(company, scoreData, geminiApiKey, grokApiKey);
+  const outreach = null;
 
   return {
     ...company,
@@ -181,6 +181,9 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
       };
     })
   );
+
+  // Filter out leads with no email AND no phone before scoring
+  enrichedWithEmail = enrichedWithEmail.filter(company => company.companyEmail || company.email || company.phone);
 
   // 4. Score, enrich, and return
   const finalLeads = [];

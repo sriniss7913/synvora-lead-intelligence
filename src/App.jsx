@@ -343,7 +343,7 @@ export default function App() {
         <LeadDetailModal company={selectedLeadForDetail} onClose={() => setSelectedLeadForDetail(null)} onOpenOutreach={(comp) => setSelectedLeadForOutreach(comp)} />
       )}
       {selectedLeadForOutreach && (
-        <OutreachDrawer company={selectedLeadForOutreach} onClose={() => setSelectedLeadForOutreach(null)} onUpdateStatus={handleOutreachApprovalStatus} />
+        <OutreachDrawer company={selectedLeadForOutreach} onClose={() => setSelectedLeadForOutreach(null)} onUpdateStatus={handleOutreachApprovalStatus} settings={settings} />
       )}
       {showSettingsModal && (
         <SettingsModal settings={settings} onClose={() => setShowSettingsModal(false)} onSaveSettings={handleSaveSettings} />

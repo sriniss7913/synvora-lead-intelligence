@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   getAllHistoryLeads, updateLeadInHistory, getHistoryStats, clearAllHistory, bulkAddToHistory
 } from "../services/historyDB";
+import { syncOutreachUpdateToGoogleSheet } from "../services/googleSheetsSync";
 import {
   Phone, Mail, Globe, MapPin, MessageSquare, ExternalLink,
   Check, RefreshCw, Trash2, Clock, Star, Filter, Download, Search
@@ -44,13 +45,15 @@ export default function HistoryPanel() {
   useEffect(() => { loadData(); }, []);
 
   const handleStatusChange = async (id, newStatus) => {
-    await updateLeadInHistory(id, newStatus, editingNotes[id]);
+    const updatedLead = await updateLeadInHistory(id, newStatus, editingNotes[id]);
+    syncOutreachUpdateToGoogleSheet(updatedLead).catch(e => console.warn(e));
     loadData();
   };
 
   const handleNoteChange = async (id, note) => {
     setEditingNotes(prev => ({ ...prev, [id]: note }));
-    await updateLeadInHistory(id, undefined, note);
+    const updatedLead = await updateLeadInHistory(id, undefined, note);
+    syncOutreachUpdateToGoogleSheet(updatedLead).catch(e => console.warn(e));
   };
 
   const handleClearHistory = async () => {
@@ -62,7 +65,11 @@ export default function HistoryPanel() {
 
   const handleExportCSV = () => {
     if (leads.length === 0) return;
-    const headers = ["Company Name", "Category", "Address", "Phone", "Website", "Email", "Google Rating", "Outreach Status", "Notes", "Discovered At", "Data Source"];
+    const headers = [
+      "Company Name", "Category", "Address", "Phone", "Website", "Email", 
+      "Google Rating", "Lead Score", "Tier", "Outreach Status", "Notes", 
+      "Email Subject", "WhatsApp Message", "Google Maps URL", "Discovered At", "Data Source"
+    ];
     const rows = leads.map(l => [
       `"${l.companyName || ''}"`,
       `"${l.category || l.industry || ''}"`,
@@ -71,8 +78,13 @@ export default function HistoryPanel() {
       `"${l.website || ''}"`,
       `"${l.companyEmail || l.decisionMaker?.email || ''}"`,
       l.rating || '',
+      l.score || '',
+      `"${l.tier || ''}"`,
       `"${l.outreachStatus || 'New'}"`,
       `"${(l.notes || '').replace(/"/g, '""')}"`,
+      `"${(l.outreach?.email?.subject || '').replace(/"/g, '""')}"`,
+      `"${(l.outreach?.whatsapp || '').replace(/"/g, '""')}"`,
+      `"${l.googleMapsUrl || ''}"`,
       `"${l.discoveredAt?.slice(0, 10) || ''}"`,
       `"${l.dataSource || ''}"`
     ]);

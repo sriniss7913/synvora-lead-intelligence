@@ -12,7 +12,7 @@ export function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "" };
+  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "" };
 }
 
 export function saveSettings(settings) {

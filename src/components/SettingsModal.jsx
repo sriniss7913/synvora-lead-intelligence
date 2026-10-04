@@ -6,6 +6,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const [hunterApiKey, setHunterApiKey] = useState(settings.hunterApiKey || "");
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || "");
   const [grokApiKey, setGrokApiKey] = useState(settings.grokApiKey || "");
+  const [googleSheetWebhookUrl, setGoogleSheetWebhookUrl] = useState(settings.googleSheetWebhookUrl || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = (e) => {
@@ -15,6 +16,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
       hunterApiKey: hunterApiKey.trim(),
       geminiApiKey: geminiApiKey.trim(),
       grokApiKey: grokApiKey.trim(),
+      googleSheetWebhookUrl: googleSheetWebhookUrl.trim(),
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -27,6 +29,7 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const hasHunter = hunterApiKey.trim().length > 10;
   const hasGemini = geminiApiKey.trim().length > 10;
   const hasGrok = grokApiKey.trim().length > 10;
+  const hasSheet = googleSheetWebhookUrl.trim().startsWith("http");
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -244,6 +247,57 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
             </details>
           </div>
 
+          {/* Google Sheets / Excel Webhook Sync Section */}
+          <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasSheet ? 'rgba(16,185,129,0.5)' : 'var(--border-light)'}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: "1.3rem" }}>📊</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                  Google Sheets & Excel Live Sync
+                  {hasSheet && <span style={{ marginLeft: 8, color: "#10b981", fontSize: "0.72rem" }}>✅ Live Sync Active</span>}
+                  <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "var(--text-dim)", fontWeight: 400 }}>(Optional)</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Auto-sync discovered leads & outreach updates to your Google Sheet or Excel spreadsheet in real-time
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="url"
+              className="glass-input"
+              style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.83rem", marginBottom: 8 }}
+              placeholder="https://script.google.com/macros/s/.../exec or Make/Zapier Webhook URL"
+              value={googleSheetWebhookUrl}
+              onChange={(e) => setGoogleSheetWebhookUrl(e.target.value)}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <ShieldCheck size={11} color="var(--tier-nurture)" /> Automatically syncs on discovery & outreach
+              </div>
+              <a
+                href="https://sheets.new"
+                target="_blank" rel="noreferrer"
+                style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+              >
+                Create Google Sheet <ExternalLink size={10} />
+              </a>
+            </div>
+
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ fontSize: "0.75rem", color: "var(--accent-cyan)", cursor: "pointer" }}>📖 How to connect Google Sheets (1 minute setup)</summary>
+              <ol style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, paddingLeft: 16, lineHeight: 1.7 }}>
+                <li>Open a new sheet at <strong>sheets.new</strong></li>
+                <li>Click <strong>Extensions → Apps Script</strong></li>
+                <li>Paste the Synvora Apps Script handler code (or connect via Make.com / Zapier Webhook)</li>
+                <li>Click <strong>Deploy → New deployment</strong>, select <strong>Web app</strong></li>
+                <li>Set <em>"Who has access"</em> to <strong>"Anyone"</strong>, click <strong>Deploy</strong></li>
+                <li>Copy the Web App URL and paste above!</li>
+              </ol>
+            </details>
+          </div>
+
           {/* Status Banner */}
           {!hasApify && (
             <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", padding: 12, borderRadius: 8, fontSize: "0.8rem", color: "#fbbf24", marginBottom: 20, display: "flex", gap: 8 }}>
@@ -257,7 +311,8 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
               ✅ <strong>Ready for real leads.</strong>{" "}
               {hasGemini ? "Gemini AI will write unique outreach per lead. " : "Add Gemini key for AI-written outreach. "}
               {hasGrok ? "Grok xAI connected as fallback. " : ""}
-              {hasHunter ? "Hunter.io connected for email enrichment." : ""}
+              {hasHunter ? "Hunter.io connected for email enrichment. " : ""}
+              {hasSheet ? "Google Sheet live sync active." : ""}
             </div>
           )}
 

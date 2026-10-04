@@ -18,13 +18,14 @@ import {
   executeLeadDiscovery
 } from "./services/leadIntelligenceEngine";
 import { bulkAddToHistory, getAllHistoryLeads } from "./services/historyDB";
+import { syncLeadsToGoogleSheet, syncOutreachUpdateToGoogleSheet } from "./services/googleSheetsSync";
 
 const SETTINGS_KEY = "synvora_lead_intelligence_settings_v2";
 
 export default function App() {
   const [leads, setLeads] = useState([]);           // Current session fresh search results
   const [historyCount, setHistoryCount] = useState(0);
-  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "" });
+  const [settings, setSettingsState] = useState({ apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "" });
   const [activeView, setActiveView] = useState("table"); // 'table' | 'kanban' | 'history'
   const [isSearching, setIsSearching] = useState(false);
   const [progressSteps, setProgressSteps] = useState([]); // array of { msg, done }
@@ -135,6 +136,11 @@ export default function App() {
       await refreshHistoryCount();
       setLeads(newLeads);
 
+      // Auto-sync discovered leads to Google Sheet / Excel if configured
+      if (settings.googleSheetWebhookUrl) {
+        syncLeadsToGoogleSheet(newLeads, settings.googleSheetWebhookUrl).catch(e => console.warn("Google Sheet sync error:", e));
+      }
+
       const cityLabel = enrichedFilters.nearMeCity ? `near you (${enrichedFilters.nearMeCity})` : (enrichedFilters.city || 'this area');
       triggerToast(`✅ ${newLeads.length} real leads found ${cityLabel} and saved to history!`);
     } catch (err) {
@@ -154,18 +160,27 @@ export default function App() {
   };
 
   const handleOutreachApprovalStatus = (leadId, approvalStatus, updatedOutreachCopy) => {
+    let targetUpdatedLead = null;
     const updated = leads.map(l => {
       if (l.id === leadId) {
-        return {
+        const item = {
           ...l,
           outreachApprovedStatus: approvalStatus,
-          status: approvalStatus === "Approved" ? "Outreach Prepared" : l.status,
+          status: approvalStatus === "Approved" ? "Outreach Prepared" : (approvalStatus === "Sent" ? "Sent" : l.status),
           outreach: updatedOutreachCopy ? { ...l.outreach, ...updatedOutreachCopy } : l.outreach
         };
+        targetUpdatedLead = item;
+        return item;
       }
       return l;
     });
     setLeads(updated);
+
+    // Auto-sync outreach status & copy to Google Sheet / Excel
+    if (targetUpdatedLead && settings.googleSheetWebhookUrl) {
+      syncOutreachUpdateToGoogleSheet(targetUpdatedLead, settings.googleSheetWebhookUrl).catch(e => console.warn("Google Sheet outreach sync error:", e));
+    }
+
     triggerToast(`Outreach status set to "${approvalStatus}"`);
   };
 
@@ -179,7 +194,11 @@ export default function App() {
 
   const handleExportCSV = () => {
     if (leads.length === 0) return;
-    const headers = ["Company Name", "Category", "Address", "Phone", "Website", "Email", "Rating", "Reviews", "Google Maps URL", "Data Source"];
+    const headers = [
+      "Company Name", "Category", "Address", "Phone", "Website", "Email", 
+      "Rating", "Reviews", "Lead Score", "Tier", "Outreach Status", "Outreach Approval", 
+      "Email Subject", "WhatsApp Message", "Google Maps URL", "Data Source"
+    ];
     const rows = leads.map(l => [
       `"${l.companyName || ''}"`,
       `"${l.category || l.industry || ''}"`,
@@ -189,6 +208,12 @@ export default function App() {
       `"${l.companyEmail || l.decisionMaker?.email || ''}"`,
       l.rating || '',
       l.reviewsCount || 0,
+      l.score || '',
+      `"${l.tier || ''}"`,
+      `"${l.status || 'Discovered'}"`,
+      `"${l.outreachApprovedStatus || 'Pending Review'}"`,
+      `"${(l.outreach?.email?.subject || '').replace(/"/g, '""')}"`,
+      `"${(l.outreach?.whatsapp || '').replace(/"/g, '""')}"`,
       `"${l.googleMapsUrl || ''}"`,
       `"${l.dataSource || ''}"`
     ]);
@@ -203,8 +228,20 @@ export default function App() {
   };
 
   const handleUpdateLeadStatus = (leadId, newStatus) => {
-    const updated = leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l);
+    let targetUpdatedLead = null;
+    const updated = leads.map(l => {
+      if (l.id === leadId) {
+        const item = { ...l, status: newStatus };
+        targetUpdatedLead = item;
+        return item;
+      }
+      return l;
+    });
     setLeads(updated);
+
+    if (targetUpdatedLead && settings.googleSheetWebhookUrl) {
+      syncOutreachUpdateToGoogleSheet(targetUpdatedLead, settings.googleSheetWebhookUrl).catch(e => console.warn("Google Sheet sync error:", e));
+    }
   };
 
   return (

@@ -130,7 +130,7 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
   }
 
   // 3. Hunter.io email enrichment as last resort if Email Extractor didn't find one
-  const enrichedWithEmail = await Promise.all(
+  let enrichedWithEmail = await Promise.all(
     freshResults.map(async (company) => {
       // Skip Hunter.io call if email already found by email extractor
       if (company.email) {

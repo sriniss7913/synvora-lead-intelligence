@@ -108,7 +108,7 @@ export async function executeLeadDiscovery(queryText, filters = {}, settings = {
       }
     }
   } else {
-    if (!apifyToken) throw new Error(\"APIFY_TOKEN_MISSING\");
+    if (!apifyToken) throw new Error('APIFY_TOKEN_MISSING');
     try {
       // Request 3x more leads than needed to compensate for contact-info filtering
       const fetchCount = count * 3;

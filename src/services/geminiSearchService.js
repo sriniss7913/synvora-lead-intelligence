@@ -71,7 +71,12 @@ IMPORTANT:
       }
 
       if (!response.ok) {
-        lastError = `HTTP ${response.status}`;
+        let errorDetail = `HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          errorDetail = errData?.error?.message || errorDetail;
+        } catch (_) {}
+        lastError = errorDetail;
         throw new Error(lastError);
       }
 

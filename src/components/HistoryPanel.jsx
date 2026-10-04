@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   getAllHistoryLeads, updateLeadInHistory, getHistoryStats, clearAllHistory, bulkAddToHistory
 } from "../services/historyDB";
-import { syncOutreachUpdateToGoogleSheet } from "../services/googleSheetsSync";
+import { syncOutreachUpdateToGoogleSheet, fetchLeadsFromGoogleSheet, getGoogleSheetsWebhookUrl } from "../services/googleSheetsSync";
 import {
   Phone, Mail, Globe, MapPin, MessageSquare, ExternalLink,
   Check, RefreshCw, Trash2, Clock, Star, Filter, Download, Search
@@ -27,14 +27,35 @@ export default function HistoryPanel() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingNotes, setEditingNotes] = useState({}); // id -> note text
+  const [isSheetSynced, setIsSheetSynced] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     try {
+      // 1. Try pulling directly from Google Sheet if Web App URL is configured
+      const sheetUrl = getGoogleSheetsWebhookUrl();
+      if (sheetUrl) {
+        const sheetLeads = await fetchLeadsFromGoogleSheet(sheetUrl);
+        if (sheetLeads && sheetLeads.length > 0) {
+          setLeads(sheetLeads);
+          setIsSheetSynced(true);
+          // Calculate stats
+          const s = { total: sheetLeads.length };
+          const statuses = ['New', 'Email Sent', 'WhatsApp Sent', 'Interested', 'Meeting Scheduled', 'Closed Won', 'Closed Lost', 'Not Interested'];
+          statuses.forEach(st => {
+            s[st] = sheetLeads.filter(l => l.outreachStatus === st).length;
+          });
+          setStats(s);
+          return;
+        }
+      }
+
+      // 2. Fallback to browser IndexedDB
       const all = await getAllHistoryLeads();
       const s = await getHistoryStats();
       setLeads(all);
       setStats(s);
+      setIsSheetSynced(false);
     } catch (e) {
       console.error("Failed to load history:", e);
     } finally {
@@ -125,9 +146,23 @@ export default function HistoryPanel() {
       <div className="glass-panel" style={{ padding: 20, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff" }}>📋 Lead History Vault</h2>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              📋 Lead History Vault
+              {isSheetSynced ? (
+                <span style={{ fontSize: "0.72rem", color: "#10b981", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.35)", borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>
+                  📊 Connected to Google Sheet (Live Storage)
+                </span>
+              ) : (
+                <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-light)", borderRadius: 20, padding: "2px 10px", fontWeight: 500 }}>
+                  💾 Local Browser Cache
+                </span>
+              )}
+            </h2>
             <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginTop: 2 }}>
-              All {stats.total || 0} leads ever discovered — with full outreach & follow-up tracking
+              {isSheetSynced
+                ? `Loaded ${stats.total || 0} leads directly from your linked Google Sheet.`
+                : `All ${stats.total || 0} leads discovered in this browser — with full outreach tracking.`
+              }
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>

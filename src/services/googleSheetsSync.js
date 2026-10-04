@@ -67,33 +67,40 @@ export function formatLeadForSheet(lead, eventType = "LEAD_DISCOVERED") {
 async function sendToWebhook(webhookUrl, payload) {
   if (!webhookUrl || !webhookUrl.startsWith("http")) return false;
 
+  const jsonString = JSON.stringify(payload);
+
+  // Google Apps Script requires text/plain body without custom headers to avoid CORS OPTIONS failure
   try {
-    // Send as POST JSON. Mode 'no-cors' fallback handled for Google Apps Script redirects.
-    const response = await fetch(webhookUrl, {
+    await fetch(webhookUrl, {
       method: "POST",
+      mode: "no-cors",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "text/plain"
       },
-      body: JSON.stringify(payload)
+      body: jsonString
     });
-    return response.ok;
+    return true;
   } catch (err) {
-    // Google Apps Script Web Apps often trigger CORS on 302 redirects even if the row was saved.
-    // In such cases, attempt sendBeacon or text/plain to avoid CORS preflight blocks.
-    try {
-      await fetch(webhookUrl, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain"
-        },
-        body: JSON.stringify(payload)
-      });
-      return true;
-    } catch (fallbackErr) {
-      console.warn("Google Sheet webhook sync failed:", fallbackErr.message);
-      return false;
-    }
+    console.warn("Google Sheet webhook sync failed:", err.message);
+    return false;
+  }
+}
+
+/**
+ * Fetch all leads stored in Google Sheet via doGet
+ */
+export async function fetchLeadsFromGoogleSheet(webhookUrl = null) {
+  const url = webhookUrl || getGoogleSheetsWebhookUrl();
+  if (!url || !url.startsWith("http")) return null;
+
+  try {
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) return null;
+    const leads = await res.json();
+    return Array.isArray(leads) ? leads : null;
+  } catch (e) {
+    console.warn("Could not read leads from Google Sheet via doGet:", e.message);
+    return null;
   }
 }
 
@@ -129,9 +136,74 @@ export async function syncOutreachUpdateToGoogleSheet(lead, webhookUrl = null) {
  * Generate a ready-to-paste Google Apps Script snippet for users
  */
 export function getGoogleAppsScriptTemplate() {
-  return `function doPost(e) {
+  return `// ─── Synvora Lead Intelligence: Google Sheets Sync Backend ───
+// Instructions:
+// 1. In your Google Sheet, go to Extensions > Apps Script
+// 2. Paste this entire code into Code.gs
+// 3. Click Deploy > New deployment > Select 'Web app'
+// 4. Set 'Execute as': 'Me'
+// 5. Set 'Who has access': 'Anyone'  <-- CRITICAL!
+// 6. Click Deploy, copy the Web App URL, and paste it into Synvora Settings!
+
+function doGet(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var data = JSON.parse(e.postData.contents);
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify([]))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var headers = data[0];
+  var leads = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[1]) continue; // Skip empty rows without company name
+    leads.push({
+      id: "sheet-lead-" + i,
+      timestamp: row[0] || "",
+      companyName: row[1] || "",
+      category: row[2] || "",
+      location: row[3] || "",
+      phone: row[4] ? String(row[4]) : "",
+      email: row[5] || "",
+      companyEmail: row[5] || "",
+      website: row[6] || "",
+      rating: row[7] || null,
+      reviewsCount: row[8] || 0,
+      decisionMaker: {
+        name: row[9] || "Business Owner",
+        email: row[5] || "",
+        phone: row[4] ? String(row[4]) : ""
+      },
+      score: row[10] || 70,
+      tier: row[11] || "Warm lead",
+      outreachStatus: row[12] || "New",
+      outreachApprovedStatus: row[12] === "Sent" ? "Approved" : "Pending Review",
+      outreach: {
+        email: { subject: row[13] || "", body: "" },
+        whatsapp: row[14] || ""
+      },
+      googleMapsUrl: row[15] || "",
+      dataSource: "📊 Google Sheets Database",
+      discoveredAt: row[0] || new Date().toISOString()
+    });
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(leads))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var rawContents = e.postData.contents;
+  var data = {};
+  try {
+    data = JSON.parse(rawContents);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   
   // Create headers if empty
   if (sheet.getLastRow() === 0) {
@@ -144,12 +216,24 @@ export function getGoogleAppsScriptTemplate() {
   
   if (data.action === "sync_leads" && data.leads) {
     data.leads.forEach(function(lead) {
-      // Check if lead already exists by Company Name or Phone
       var existingRow = findRowByCompanyName(sheet, lead.companyName);
       var rowData = [
-        lead.timestamp, lead.companyName, lead.category, lead.location, lead.phone,
-        lead.email, lead.website, lead.rating, lead.reviewsCount, lead.decisionMakerName,
-        lead.score, lead.tier, lead.outreachStatus, lead.emailSubject, lead.whatsappMessage, lead.googleMapsUrl
+        lead.timestamp || new Date().toISOString(),
+        lead.companyName || "",
+        lead.category || "",
+        lead.location || "",
+        lead.phone || "",
+        lead.email || lead.companyEmail || "",
+        lead.website || "",
+        lead.rating || "",
+        lead.reviewsCount || 0,
+        lead.decisionMakerName || "",
+        lead.score || 0,
+        lead.tier || "",
+        lead.outreachStatus || "New",
+        lead.emailSubject || "",
+        lead.whatsappMessage || "",
+        lead.googleMapsUrl || ""
       ];
       
       if (existingRow > 0) {
@@ -162,9 +246,22 @@ export function getGoogleAppsScriptTemplate() {
     var lead = data.lead;
     var existingRow = findRowByCompanyName(sheet, lead.companyName);
     var rowData = [
-      lead.timestamp, lead.companyName, lead.category, lead.location, lead.phone,
-      lead.email, lead.website, lead.rating, lead.reviewsCount, lead.decisionMakerName,
-      lead.score, lead.tier, lead.outreachStatus, lead.emailSubject, lead.whatsappMessage, lead.googleMapsUrl
+      lead.timestamp || new Date().toISOString(),
+      lead.companyName || "",
+      lead.category || "",
+      lead.location || "",
+      lead.phone || "",
+      lead.email || lead.companyEmail || "",
+      lead.website || "",
+      lead.rating || "",
+      lead.reviewsCount || 0,
+      lead.decisionMakerName || "",
+      lead.score || 0,
+      lead.tier || "",
+      lead.outreachStatus || "New",
+      lead.emailSubject || "",
+      lead.whatsappMessage || "",
+      lead.googleMapsUrl || ""
     ];
     if (existingRow > 0) {
       sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);

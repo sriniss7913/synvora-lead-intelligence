@@ -38,7 +38,7 @@ export function formatLeadForSheet(lead, eventType = "LEAD_DISCOVERED") {
     category: lead.category || lead.industry || "",
     location: lead.location || "",
     address: lead.address || "",
-    phone: lead.phone || lead.decisionMaker?.phone || "",
+    phone: lead.phone ? String(lead.phone).trim() : (lead.decisionMaker?.phone ? String(lead.decisionMaker.phone).trim() : ""),
     email: lead.companyEmail || lead.email || lead.decisionMaker?.email || "",
     website: lead.website || "",
     rating: lead.rating || "",
@@ -217,12 +217,16 @@ function doPost(e) {
   if (data.action === "sync_leads" && data.leads) {
     data.leads.forEach(function(lead) {
       var existingRow = findRowByCompanyName(sheet, lead.companyName);
+      var rawPhone = lead.phone ? String(lead.phone).trim() : "";
+      // Prefix with apostrophe if it starts with '+' to prevent Excel/Sheets formula parse error
+      var safePhone = (rawPhone.indexOf("+") === 0) ? ("'" + rawPhone) : rawPhone;
+
       var rowData = [
         lead.timestamp || new Date().toISOString(),
         lead.companyName || "",
         lead.category || "",
         lead.location || "",
-        lead.phone || "",
+        safePhone,
         lead.email || lead.companyEmail || "",
         lead.website || "",
         lead.rating || "",
@@ -245,12 +249,15 @@ function doPost(e) {
   } else if (data.action === "update_lead" && data.lead) {
     var lead = data.lead;
     var existingRow = findRowByCompanyName(sheet, lead.companyName);
+    var rawPhone = lead.phone ? String(lead.phone).trim() : "";
+    var safePhone = (rawPhone.indexOf("+") === 0) ? ("'" + rawPhone) : rawPhone;
+
     var rowData = [
       lead.timestamp || new Date().toISOString(),
       lead.companyName || "",
       lead.category || "",
       lead.location || "",
-      lead.phone || "",
+      safePhone,
       lead.email || lead.companyEmail || "",
       lead.website || "",
       lead.rating || "",

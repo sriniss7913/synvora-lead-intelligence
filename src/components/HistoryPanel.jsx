@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   getAllHistoryLeads, updateLeadInHistory, getHistoryStats, clearAllHistory, bulkAddToHistory
 } from "../services/historyDB";
-import { syncOutreachUpdateToGoogleSheet, fetchLeadsFromGoogleSheet, getGoogleSheetsWebhookUrl } from "../services/googleSheetsSync";
+import { syncOutreachUpdateToGoogleSheet, syncLeadsToGoogleSheet, fetchLeadsFromGoogleSheet, getGoogleSheetsWebhookUrl } from "../services/googleSheetsSync";
 import {
   Phone, Mail, Globe, MapPin, MessageSquare, ExternalLink,
   Check, RefreshCw, Trash2, Clock, Star, Filter, Download, Search

@@ -29,6 +29,9 @@ export default function HistoryPanel() {
   const [editingNotes, setEditingNotes] = useState({}); // id -> note text
   const [isSheetSynced, setIsSheetSynced] = useState(false);
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -39,6 +42,8 @@ export default function HistoryPanel() {
         if (sheetLeads && sheetLeads.length > 0) {
           setLeads(sheetLeads);
           setIsSheetSynced(true);
+          // Keep IndexedDB populated with sheet data as offline cache
+          await bulkAddToHistory(sheetLeads);
           // Calculate stats
           const s = { total: sheetLeads.length };
           const statuses = ['New', 'Email Sent', 'WhatsApp Sent', 'Interested', 'Meeting Scheduled', 'Closed Won', 'Closed Lost', 'Not Interested'];
@@ -60,6 +65,55 @@ export default function HistoryPanel() {
       console.error("Failed to load history:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Two-Way Sync:
+   * 1. Pushes all local leads not yet in Google Sheet up to the sheet
+   * 2. Pulls all sheet leads back down into the browser
+   */
+  const handleForceSyncWithSheet = async () => {
+    const sheetUrl = getGoogleSheetsWebhookUrl();
+    if (!sheetUrl) {
+      alert("Please configure your Google Sheets Webhook URL in Settings first!");
+      return;
+    }
+
+    setSyncing(true);
+    setSyncMessage("Syncing with Google Sheet...");
+    try {
+      const localLeads = await getAllHistoryLeads();
+      if (localLeads.length > 0) {
+        setSyncMessage(`Pushing ${localLeads.length} leads to Google Sheet...`);
+        await syncLeadsToGoogleSheet(localLeads, sheetUrl);
+      }
+
+      // Give Google Apps Script a second to write
+      await new Promise(r => setTimeout(r, 1500));
+
+      setSyncMessage("Fetching latest data from sheet...");
+      const sheetLeads = await fetchLeadsFromGoogleSheet(sheetUrl);
+      if (sheetLeads && sheetLeads.length > 0) {
+        setLeads(sheetLeads);
+        setIsSheetSynced(true);
+        await bulkAddToHistory(sheetLeads);
+        const s = { total: sheetLeads.length };
+        const statuses = ['New', 'Email Sent', 'WhatsApp Sent', 'Interested', 'Meeting Scheduled', 'Closed Won', 'Closed Lost', 'Not Interested'];
+        statuses.forEach(st => {
+          s[st] = sheetLeads.filter(l => l.outreachStatus === st).length;
+        });
+        setStats(s);
+        setSyncMessage(`✅ Synced! ${sheetLeads.length} leads in Google Sheet.`);
+      } else {
+        setSyncMessage("✅ Pushed leads to Google Sheet!");
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+      setSyncMessage("⚠️ Sync failed. Check Webhook permissions ('Anyone').");
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(null), 4000);
     }
   };
 
@@ -165,7 +219,17 @@ export default function HistoryPanel() {
               }
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={handleForceSyncWithSheet}
+              disabled={syncing}
+              className="btn-primary"
+              style={{ fontSize: "0.8rem", padding: "6px 14px", display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)", border: "none" }}
+              title="Push all local leads to Google Sheet & pull sheet records"
+            >
+              <RefreshCw size={14} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+              {syncing ? "Syncing..." : "Sync with Google Sheet"}
+            </button>
             <button onClick={handleExportCSV} className="btn-secondary" style={{ fontSize: "0.8rem", padding: "6px 12px" }}>
               <Download size={14} /> Export CSV
             </button>
@@ -177,6 +241,13 @@ export default function HistoryPanel() {
             </button>
           </div>
         </div>
+
+        {/* Sync Status Banner */}
+        {syncMessage && (
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, fontSize: "0.8rem", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#6ee7b7" }}>
+            {syncMessage}
+          </div>
+        )}
 
         {/* Status Summary Pills */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>

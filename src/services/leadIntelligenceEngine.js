@@ -7,12 +7,41 @@ import { isInHistory } from "./historyDB";
 
 const SETTINGS_KEY = "synvora_lead_intelligence_settings_v2";
 
+/**
+ * Settings priority (highest → lowest):
+ *  1. VITE_ environment variables (set in .env.local or Vercel dashboard) — baked in at build time
+ *  2. localStorage overrides saved via the Settings UI
+ *
+ * This means API keys set in Vercel/env never need to be re-entered per device,
+ * but a user can still override them locally via the Settings modal.
+ */
 export function loadSettings() {
+  // Base: env vars baked in at build time (empty string if not set)
+  const envDefaults = {
+    apifyToken:            import.meta.env.VITE_APIFY_TOKEN            || "",
+    hunterApiKey:          import.meta.env.VITE_HUNTER_API_KEY         || "",
+    geminiApiKey:          import.meta.env.VITE_GEMINI_API_KEY         || "",
+    grokApiKey:            import.meta.env.VITE_GROK_API_KEY           || "",
+    googleSheetWebhookUrl: import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || "",
+    googleSheetUrl:        import.meta.env.VITE_GOOGLE_SHEET_URL       || "",
+  };
+
+  // Overlay: localStorage (UI-saved values override env defaults)
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const stored = JSON.parse(raw);
+      // Merge: env provides defaults, stored values override them
+      return {
+        ...envDefaults,
+        ...Object.fromEntries(
+          Object.entries(stored).filter(([, v]) => v && v.toString().trim() !== "")
+        ),
+      };
+    }
   } catch (e) {}
-  return { apifyToken: "", hunterApiKey: "", geminiApiKey: "", grokApiKey: "", googleSheetWebhookUrl: "", googleSheetUrl: "" };
+
+  return envDefaults;
 }
 
 export function saveSettings(settings) {

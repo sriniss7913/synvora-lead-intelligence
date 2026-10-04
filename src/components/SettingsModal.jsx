@@ -1,7 +1,17 @@
 import React, { useState } from "react";
-import { X, Sliders, Key, ShieldCheck, Check, Info, ExternalLink, AlertTriangle } from "lucide-react";
+import { X, Sliders, Key, ShieldCheck, Check, Info, ExternalLink, AlertTriangle, Lock } from "lucide-react";
 
 export default function SettingsModal({ settings, onClose, onSaveSettings }) {
+  // Detect which fields are pre-loaded from environment variables (Vercel / .env)
+  const envVars = {
+    apifyToken:            import.meta.env.VITE_APIFY_TOKEN            || "",
+    hunterApiKey:          import.meta.env.VITE_HUNTER_API_KEY         || "",
+    geminiApiKey:          import.meta.env.VITE_GEMINI_API_KEY         || "",
+    grokApiKey:            import.meta.env.VITE_GROK_API_KEY           || "",
+    googleSheetWebhookUrl: import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || "",
+    googleSheetUrl:        import.meta.env.VITE_GOOGLE_SHEET_URL       || "",
+  };
+
   const [apifyToken, setApifyToken] = useState(settings.apifyToken || "");
   const [hunterApiKey, setHunterApiKey] = useState(settings.hunterApiKey || "");
   const [geminiApiKey, setGeminiApiKey] = useState(settings.geminiApiKey || "");
@@ -9,6 +19,14 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
   const [googleSheetWebhookUrl, setGoogleSheetWebhookUrl] = useState(settings.googleSheetWebhookUrl || "");
   const [googleSheetUrl, setGoogleSheetUrl] = useState(settings.googleSheetUrl || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Helper: show lock badge when value comes from env var
+  const EnvBadge = ({ field }) => envVars[field] ? (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "0.68rem", color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 4, padding: "1px 6px", marginLeft: 6 }}>
+      <Lock size={9} /> From environment (.env / Vercel)
+    </span>
+  ) : null;
+
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -61,14 +79,25 @@ export default function SettingsModal({ settings, onClose, onSaveSettings }) {
 
         <form onSubmit={handleSave}>
 
+          {/* Env Variables Banner */}
+          {Object.values(envVars).some(v => v) && (
+            <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)", padding: "10px 14px", borderRadius: 8, fontSize: "0.8rem", color: "#6ee7b7", marginBottom: 18, display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <Lock size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                <strong>Environment variables detected.</strong> Fields marked with <em>"From environment"</em> are pre-loaded from your <code>.env</code> file or Vercel dashboard — they are secure and won't be lost. You can still override any value below.
+              </span>
+            </div>
+          )}
+
           {/* Apify Section */}
           <div style={{ marginBottom: 20, background: "rgba(15, 23, 42, 0.7)", padding: 16, borderRadius: 10, border: `1px solid ${hasApify ? 'rgba(16,185,129,0.5)' : 'var(--border-light)'}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: "1.3rem" }}>🗺️</span>
               <div>
-                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", display: "flex", alignItems: "center", flexWrap: "wrap" }}>
                   Apify — Google Maps Scraper
                   {hasApify && <span style={{ marginLeft: 8, color: "#10b981", fontSize: "0.72rem" }}>✅ Connected</span>}
+                  <EnvBadge field="apifyToken" />
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                   Real Indian businesses from Google Maps • Free tier: 5,000 results/month
